@@ -112,3 +112,43 @@
     color: gray !important;
     margin-bottom: 5px !important;
 }
+
+
+/* Mobile calendar readability */
+@media (max-width: 768px) {
+  .rbc-time-view {
+    min-width: 100%;
+  }
+
+  .rbc-event {
+    font-size: 12px;
+    padding: 4px;
+    line-height: 1.2;
+  }
+
+  .rbc-time-header {
+    font-size: 12px;
+  }
+}
+
+
+/* Prevent overlapping lessons on mobile */
+@media (max-width: 768px) {
+  .rbc-event {
+    width: 100% !important;
+    left: 0 !important;
+    margin-right: 0 !important;
+    font-size: 12px;
+    padding: 6px;
+  }
+
+  .rbc-day-slot .rbc-events-container {
+    margin-right: 0 !important;
+  }
+
+  .rbc-event-label {
+    font-size: 11px;
+  }
+}
+
+

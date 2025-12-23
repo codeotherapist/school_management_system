@@ -121,28 +121,31 @@ export const deleteClass = async (
 };
 
 // ================= TEACHER =================
+
+/* =========================================================
+   CREATE TEACHER
+   ========================================================= */
 export const createTeacher = async (
   currentState: CurrentState,
   data: TeacherSchema
 ) => {
   try {
-    // Clerk client v6 requires initialization
     const clerk = await clerkClient();
 
-    // Create user in Clerk
+    // 1. Create user in Clerk
     const user = await clerk.users.createUser({
       username: data.username,
       password: data.password,
       firstName: data.name,
       lastName: data.surname,
-      emailAddress: [data.email], // must be array
+      emailAddress: [data.email],
       publicMetadata: { role: "teacher" },
     });
 
-    // Save teacher in Prisma
+    // 2. Create teacher in Prisma
     await prisma.teacher.create({
       data: {
-        id: user.id, // use Clerk user id
+        id: user.id,
         username: data.username,
         name: data.name,
         surname: data.surname,
@@ -153,6 +156,7 @@ export const createTeacher = async (
         bloodType: data.bloodType,
         sex: data.sex,
         birthday: data.birthday,
+        isDeleted: false,
         subjects: {
           connect: data.subjects?.map((subjectId: string) => ({
             id: parseInt(subjectId),
@@ -168,33 +172,33 @@ export const createTeacher = async (
   }
 };
 
+/* =========================================================
+   UPDATE TEACHER
+   ========================================================= */
 export const updateTeacher = async (
   currentState: CurrentState,
   data: TeacherSchema
 ) => {
-if(!data.id){
-  return {success:false , error: true}
-}
+  if (!data.id) return { success: false, error: true };
 
   try {
     const clerk = await clerkClient();
 
-    // update user in Clerk
-    const user = await clerk.users.updateUser(data.id,{
+    // 1. Update Clerk user
+    await clerk.users.updateUser(data.id, {
       username: data.username,
       ...(data.password && data.password !== "" && { password: data.password }),
       firstName: data.name,
       lastName: data.surname,
-      emailAddress: [data.email], 
+      emailAddress: [data.email],
       publicMetadata: { role: "teacher" },
     });
 
-    // Save teacher in Prisma
-     await prisma.teacher.update({
+    // 2. Update Prisma teacher
+    await prisma.teacher.update({
       where: { id: data.id },
       data: {
         username: data.username,
-        ...(data.password && data.password !== "" && { password: data.password }),
         name: data.name,
         surname: data.surname,
         email: data.email || null,
@@ -219,52 +223,87 @@ if(!data.id){
   }
 };
 
+/* =========================================================
+   SOFT DELETE TEACHER
+   ========================================================= */
 export const deleteTeacher = async (
   currentState: CurrentState,
   data: FormData
 ) => {
   const id = data.get("id") as string;
+
   try {
-    await prisma.teacher.delete({ where: { id: id } });
+    await prisma.teacher.update({
+      where: { id },
+      data: { isDeleted: true },
+    });
+
     return { success: true, error: false };
   } catch (err) {
-    console.error("Error deleting teacher:", err);
+    console.error("Error soft deleting teacher:", err);
+    return { success: false, error: true };
+  }
+};
+
+/* =========================================================
+   RESTORE TEACHER
+   ========================================================= */
+export const restoreTeacher = async (
+  currentState: CurrentState,
+  data: FormData
+) => {
+  const id = data.get("id") as string;
+
+  try {
+    await prisma.teacher.update({
+      where: { id },
+      data: { isDeleted: false },
+    });
+
+    return { success: true, error: false };
+  } catch (err) {
+    console.error("Error restoring teacher:", err);
     return { success: false, error: true };
   }
 };
 
 
-/////////////////////////////////////////// Student ////////////////////////////////////
 
+/////////////////////////////////////////// Student ////////////////////////////////////
+/* =========================================================
+   CREATE STUDENT
+   ========================================================= */
 export const createStudent = async (
   currentState: CurrentState,
   data: StudentSchema
 ) => {
   try {
+    // 1️⃣ Check class capacity
     const classItem = await prisma.class.findUnique({
-      where : {id: data.classId},
-      include : {_count:{select:{students : true}}},
+      where: { id: data.classId },
+      include: { _count: { select: { students: true } } },
     });
 
-    if(classItem && classItem.capacity === classItem._count.students){
-      return {success : false , error: true};
+    if (classItem && classItem.capacity === classItem._count.students) {
+      return { success: false, error: true };
     }
+
+    // 2️⃣ Create USER in Clerk
     const clerk = await clerkClient();
 
-    // Create user in Clerk
     const user = await clerk.users.createUser({
       username: data.username,
       password: data.password,
       firstName: data.name,
       lastName: data.surname,
-      emailAddress: [data.email], // must be array
+      emailAddress: [data.email],
       publicMetadata: { role: "student" },
     });
 
-    // Save teacher in Prisma
+    // 3️⃣ Save STUDENT in Prisma
     await prisma.student.create({
       data: {
-        id: user.id, // use Clerk user id
+        id: user.id,
         username: data.username,
         name: data.name,
         surname: data.surname,
@@ -275,46 +314,48 @@ export const createStudent = async (
         bloodType: data.bloodType,
         sex: data.sex,
         birthday: data.birthday,
-       gradeId : data.gradeId,
-       classId : data.classId,
-       parentId: data.parentId
+        gradeId: data.gradeId,
+        classId: data.classId,
+        parentId: data.parentId,
+        isDeleted: false, // 🔥 Soft delete flag
       },
     });
 
     return { success: true, error: false };
   } catch (err) {
-    console.error("Error creating teacher:", err);
+    console.error("❌ Error creating student:", err);
     return { success: false, error: true };
   }
 };
 
+
+/* =========================================================
+   UPDATE STUDENT
+   ========================================================= */
 export const updateStudent = async (
   currentState: CurrentState,
   data: StudentSchema
 ) => {
-if(!data.id){
-  return {success:false , error: true}
-}
+  if (!data.id) return { success: false, error: true };
 
   try {
     const clerk = await clerkClient();
 
-    // update user in Clerk
-    const user = await clerk.users.updateUser(data.id,{
+    // 1️⃣ Update Clerk user
+    await clerk.users.updateUser(data.id, {
       username: data.username,
-      ...(data.password && data.password !== "" && { password: data.password }),
+      ...(data.password && data.password !== "" ? { password: data.password } : {}),
       firstName: data.name,
       lastName: data.surname,
-      emailAddress: [data.email], 
+      emailAddress: [data.email],
       publicMetadata: { role: "student" },
     });
 
-   
-     await prisma.student.update({
+    // 2️⃣ Update Prisma student
+    await prisma.student.update({
       where: { id: data.id },
       data: {
         username: data.username,
-        ...(data.password && data.password !== "" && { password: data.password }),
         name: data.name,
         surname: data.surname,
         email: data.email || null,
@@ -324,33 +365,173 @@ if(!data.id){
         bloodType: data.bloodType,
         sex: data.sex,
         birthday: data.birthday,
-       gradeId : data.gradeId,
-       classId : data.classId,
-       parentId: data.parentId
+        gradeId: data.gradeId,
+        classId: data.classId,
+        parentId: data.parentId,
       },
     });
 
     return { success: true, error: false };
   } catch (err) {
-    console.error("Error updating teacher:", err);
+    console.error("❌ Error updating student:", err);
     return { success: false, error: true };
   }
 };
 
+
+/* =========================================================
+   SOFT DELETE STUDENT
+   ========================================================= */
 export const deleteStudent = async (
   currentState: CurrentState,
   data: FormData
 ) => {
   const id = data.get("id") as string;
-  try {
 
-    await prisma.student.delete({ where: { id: id } });
+  try {
+    await prisma.student.update({
+      where: { id },
+      data: {
+        isDeleted: true, // 🔥 Soft delete flag
+      },
+    });
+
     return { success: true, error: false };
   } catch (err) {
-    console.error("Error deleting student", err);
+    console.error("❌ Error soft deleting student:", err);
     return { success: false, error: true };
   }
 };
+
+
+/* =========================================================
+   RESTORE STUDENT
+   ========================================================= */
+export const restoreStudent = async (
+  currentState: CurrentState,
+  data: FormData
+) => {
+  const id = data.get("id") as string;
+
+  try {
+    await prisma.student.update({
+      where: { id },
+      data: {
+        isDeleted: false, // 🔥 Restore
+      },
+    });
+
+    return { success: true, error: false };
+  } catch (err) {
+    console.error("❌ Error restoring student:", err);
+    return { success: false, error: true };
+  }
+};
+
+////////////////////////////Parent /////////////////////////////////////////////////
+
+// -------------------- PARENT (create / update / delete) --------------------
+
+export const createParent = async (
+  currentState: CurrentState,
+  data: { username: string; name: string; surname: string; email?: string | null; phone: string; address: string }
+) => {
+  try {
+    // CREATE parent only in Prisma (NO Clerk, NO img, NO password)
+    await prisma.parent.create({
+      data: {
+        id: crypto.randomUUID(), // generate unique ID
+        username: data.username,
+        name: data.name,
+        surname: data.surname,
+        email: data.email || null,
+        phone: data.phone,
+        address: data.address,
+      },
+    });
+
+    return { success: true, error: false };
+  } catch (error) {
+    console.error("Create parent error:", error);
+    return { success: false, error: true };
+  }
+};
+
+export const updateParent = async (
+  currentState: CurrentState,
+  data: { id: string; username: string; name: string; surname: string; email?: string | null; phone: string; address: string }
+) => {
+  try {
+    await prisma.parent.update({
+      where: { id: data.id },
+      data: {
+        username: data.username,
+        name: data.name,
+        surname: data.surname,
+        email: data.email || null,
+        phone: data.phone,
+        address: data.address,
+      },
+    });
+
+    return { success: true, error: false };
+  } catch (error) {
+    console.error("Update parent error:", error);
+    return { success: false, error: true };
+  }
+};
+
+export async function deleteParent(prevState: any, formData: FormData) {
+  try {
+    console.log("[deleteParent] called");
+
+    if (!formData || typeof formData.get !== "function") {
+      console.error("[deleteParent] invalid formData:", formData);
+      return { success: false, error: "Invalid form data" };
+    }
+
+    const id = formData.get("id") as string | null;
+    const force = formData.get("force") === "1"; // '1' = force delete
+    console.log("[deleteParent] received id:", id, "force:", force);
+
+    if (!id) {
+      return { success: false, error: "Missing parent ID" };
+    }
+
+    const parent = await prisma.parent.findUnique({ where: { id } });
+    if (!parent) {
+      return { success: false, error: "Parent not found" };
+    }
+
+    const studentCount = await prisma.student.count({ where: { parentId: id } });
+    console.log("[deleteParent] linked students:", studentCount);
+
+    if (studentCount > 0 && !force) {
+      return {
+        success: false,
+        error: "Cannot delete parent with assigned students — check 'Also delete students' to proceed.",
+      };
+    }
+
+    if (studentCount > 0 && force) {
+      // Delete students first then parent inside a transaction
+      await prisma.$transaction([
+        prisma.student.deleteMany({ where: { parentId: id } }),
+        prisma.parent.delete({ where: { id } }),
+      ]);
+      console.log("[deleteParent] force-deleted parent and students:", id);
+    } else {
+      // No students — safe to delete parent
+      await prisma.parent.delete({ where: { id } });
+      console.log("[deleteParent] deleted parent:", id);
+    }
+
+    return { success: true, error: false };
+  } catch (err) {
+    console.error("[deleteParent] error:", err);
+    return { success: false, error: true };
+  }
+}
 
 
 ////////////////////////////////////// Exam /////////////////////////////////////////
@@ -788,18 +969,38 @@ export const deleteAnnouncement = async (
 
 
 /////////////////////////////////////////////////// Attendance  /////////////////////////////////////////////
+/////////////////////////////////////////////////// Attendance  /////////////////////////////////////////////
+
+function normalizeDate(date: Date) {
+  const d = new Date(date);
+  d.setHours(0, 0, 0, 0);
+  return d;
+}
+
+// 🔹 Get day range for queries (00:00 → 23:59)
+function dayRange(date: Date) {
+  const start = normalizeDate(date);
+  const end = new Date(start);
+  end.setHours(23, 59, 59, 999);
+  return { start, end };
+}
+
+// ✅ MARK ATTENDANCE (Teacher/Admin "Save Attendance" button OR QR scan)
 export async function markAttendance(
   studentId: string,
   lessonId: number,
   present: boolean,
   date: Date
 ) {
+  const day = normalizeDate(date);
+
   return prisma.attendance.upsert({
     where: {
+      // uses your @@unique([studentId, lessonId, date]) compound key
       studentId_lessonId_date: {
         studentId,
         lessonId,
-        date,
+        date: day,
       },
     },
     update: {
@@ -809,38 +1010,159 @@ export async function markAttendance(
       studentId,
       lessonId,
       present,
-      date,
+      date: day,
     },
   });
 }
 
+// ✅ GET ALL STUDENTS (non-deleted)
 export async function getStudents() {
   return prisma.student.findMany({
+    where: { isDeleted: false },
     orderBy: { name: "asc" },
   });
 }
 
+// ✅ NEW: GET STUDENTS FOR A SPECIFIC LESSON (by that lesson's class)
+export async function getStudentsForLesson(lessonId: number) {
+  // 1️⃣ Find the lesson to know which class it belongs to
+  const lesson = await prisma.lesson.findUnique({
+    where: { id: lessonId },
+    select: { classId: true },
+  });
+
+  if (!lesson) return [];
+
+  // 2️⃣ Return only students from that class (non-deleted)
+  return prisma.student.findMany({
+    where: {
+      classId: lesson.classId,
+      isDeleted: false,
+    },
+    orderBy: { name: "asc" },
+  });
+}
+
+// ✅ GET LESSONS
 export async function getLessons() {
   return prisma.lesson.findMany({
     orderBy: { name: "asc" },
   });
 }
 
+// ✅ GET ATTENDANCE FOR UI (MUST MATCH QR SCAN LOGIC)
 export async function getAttendance(lessonId: number, date: Date) {
+  const { start, end } = dayRange(date);
+
   return prisma.attendance.findMany({
-    where: { lessonId, date },
+    where: {
+      lessonId,
+      date: {
+        gte: start,
+        lte: end,
+      },
+    },
   });
 }
 
-//////////////////////////////////////////////// Attendancechart /////////////////////
+// ✅ FINALIZE ATTENDANCE FOR A LESSON (auto-add ABSENT students)
+export async function finalizeLessonAttendance(
+  lessonId: number,
+  date: Date
+) {
+  const day = normalizeDate(date);
 
-export async function getAttendanceSummary(lessonId: number, date: Date) {
-  const records = await prisma.attendance.findMany({
-    where: { lessonId, date },
+  // 1️⃣ Get lesson → find its class
+  const lesson = await prisma.lesson.findUnique({
+    where: { id: lessonId },
+    select: { classId: true },
   });
 
-  const present = records.filter((r) => r.present).length;
-  const absent = records.filter((r) => !r.present).length;
+  if (!lesson) {
+    throw new Error("Lesson not found when finalizing attendance");
+  }
 
-  return { present, absent };
+  // 2️⃣ Get ALL students in this class (non deleted)
+  const students = await prisma.student.findMany({
+    where: {
+      classId: lesson.classId,
+      isDeleted: false,
+    },
+    select: { id: true },
+  });
+
+  if (students.length === 0) return;
+
+  // 3️⃣ Find existing attendance rows for the day
+  const { start, end } = dayRange(day);
+
+  const existing = await prisma.attendance.findMany({
+    where: {
+      lessonId,
+      date: {
+        gte: start,
+        lte: end,
+      },
+    },
+    select: { studentId: true },
+  });
+
+  const existingSet = new Set(existing.map((e) => e.studentId));
+
+  // 4️⃣ Students with NO attendance record → they are ABSENT
+  const missing = students.filter((s) => !existingSet.has(s.id));
+
+  if (missing.length === 0) return;
+
+  // 5️⃣ Insert missing as ABSENT
+  await prisma.attendance.createMany({
+    data: missing.map((s) => ({
+      studentId: s.id,
+      lessonId,
+      date: day,
+      present: false,
+    })),
+  });
+}
+
+
+//////////////////////////////////////////////// Attendance chart /////////////////////
+export async function getAttendanceSummary(lessonId: number, date: Date) {
+  const { start, end } = dayRange(date);
+
+  // 1️⃣ Get lesson to know its class
+  const lesson = await prisma.lesson.findUnique({
+    where: { id: lessonId },
+    select: { classId: true },
+  });
+
+  if (!lesson) {
+    return { present: 0, absent: 0 };
+  }
+
+  // 2️⃣ Count:
+  //    - total students in that class (active)
+  //    - students who are PRESENT for this lesson & date
+  const [totalStudents, presentCount] = await Promise.all([
+    prisma.student.count({
+      where: {
+        classId: lesson.classId,
+        isDeleted: false,
+      },
+    }),
+    prisma.attendance.count({
+      where: {
+        lessonId,
+        date: {
+          gte: start,
+          lte: end,
+        },
+        present: true,
+      },
+    }),
+  ]);
+
+  const absent = Math.max(totalStudents - presentCount, 0);
+
+  return { present: presentCount, absent };
 }

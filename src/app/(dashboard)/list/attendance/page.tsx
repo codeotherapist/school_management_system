@@ -6,7 +6,10 @@ export default async function AttendancePage() {
   const { sessionClaims } = await auth();
   const role = (sessionClaims?.metadata as { role?: string })?.role;
 
+  // ✅ fetch ONLY non-deleted students
   const students = await getStudents();
+
+  // ✅ fetch ONLY lessons where teacher is not deleted
   const lessons = await getLessons();
 
   return (

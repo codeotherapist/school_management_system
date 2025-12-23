@@ -82,31 +82,34 @@ export default function LessonForm({ type, data, setOpen, relatedData }: Props) 
         )}
       </div>
 
-      {/* Start Time */}
-      <div>
-        <label className="block font-medium">Start Time</label>
-        <input
-          type="datetime-local"
-          {...register("startTime")}
-          className="w-full border rounded-md p-2"
-        />
-        {errors.startTime && (
-          <p className="text-red-500 text-sm">{errors.startTime.message}</p>
-        )}
-      </div>
+    {/* Start Time */}
+<div>
+  <label className="block font-medium">Start Time</label>
+  <input
+    type="datetime-local"
+    {...register("startTime")}
+    max="2099-12-31T16:00"   // ✅ BLOCK AFTER 4 PM
+    className="w-full border rounded-md p-2"
+  />
+  {errors.startTime && (
+    <p className="text-red-500 text-sm">{errors.startTime.message}</p>
+  )}
+</div>
 
-      {/* End Time */}
-      <div>
-        <label className="block font-medium">End Time</label>
-        <input
-          type="datetime-local"
-          {...register("endTime")}
-          className="w-full border rounded-md p-2"
-        />
-        {errors.endTime && (
-          <p className="text-red-500 text-sm">{errors.endTime.message}</p>
-        )}
-      </div>
+{/* End Time */}
+<div>
+  <label className="block font-medium">End Time</label>
+  <input
+    type="datetime-local"
+    {...register("endTime")}
+    max="2099-12-31T16:00"   // ✅ BLOCK AFTER 4 PM
+    className="w-full border rounded-md p-2"
+  />
+  {errors.endTime && (
+    <p className="text-red-500 text-sm">{errors.endTime.message}</p>
+  )}
+</div>
+
 
       {/* Subject */}
       <div>

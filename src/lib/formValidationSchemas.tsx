@@ -116,10 +116,22 @@ export const lessonSchema = z
     classId: z.coerce.number().min(1, { message: "Class is required!" }),
     teacherId: z.string().min(1, { message: "Teacher is required!" }),
   })
+  // ⏱ End must be after start
   .refine((d) => d.endTime > d.startTime, {
     message: "End time must be after start time",
     path: ["endTime"],
-  });
+  })
+  // 🚫 NO LESSON AFTER 4:00 PM
+  .refine(
+    (d) => {
+      const end = d.endTime;
+      return end.getHours() < 16 || (end.getHours() === 16 && end.getMinutes() === 0);
+    },
+    {
+      message: "Lessons cannot end after 4:00 PM",
+      path: ["endTime"],
+    }
+  );
 
 export type LessonSchema = z.infer<typeof lessonSchema>;
 

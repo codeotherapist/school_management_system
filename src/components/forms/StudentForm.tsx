@@ -5,14 +5,8 @@ import { useForm } from "react-hook-form";
 import InputField from "../InputField";
 import Image from "next/image";
 import { Dispatch, SetStateAction, useState } from "react";
-import {
-  studentSchema,
-  StudentSchema,
-} from "@/lib/formValidationSchemas";
-import {
-  createStudent,
-  updateStudent,
-} from "@/lib/actions";
+import { studentSchema, StudentSchema } from "@/lib/formValidationSchemas";
+import { createStudent, updateStudent } from "@/lib/actions";
 import { useRouter } from "next/navigation";
 import { toast } from "react-toastify";
 import { CldUploadWidget } from "next-cloudinary";
@@ -39,6 +33,11 @@ const StudentForm = ({
   const [img, setImg] = useState<any>();
   const router = useRouter();
 
+  /* SAFE DESTRUCTURE */
+  const grades = relatedData?.grades || [];
+  const classes = relatedData?.classes || [];
+  const parents = relatedData?.parents || [];
+
   const onSubmit = handleSubmit(async (formData) => {
     const action = type === "create" ? createStudent : updateStudent;
 
@@ -56,31 +55,31 @@ const StudentForm = ({
     }
   });
 
-  const { grades, classes } = relatedData;
-
   return (
     <form className="flex flex-col gap-8" onSubmit={onSubmit}>
       <h1 className="text-xl font-semibold">
         {type === "create" ? "Create a new student" : "Update the student"}
       </h1>
 
+      {/* AUTH INFO */}
       <span className="text-xs text-gray-400 font-medium">
         Authentication Information
       </span>
+
       <div className="flex justify-between flex-wrap gap-4">
         <InputField
           label="Username"
           name="username"
           defaultValue={data?.username}
           register={register}
-          error={errors?.username}
+          error={errors.username}
         />
         <InputField
           label="Email"
           name="email"
           defaultValue={data?.email}
           register={register}
-          error={errors?.email}
+          error={errors.email}
         />
         <InputField
           label="Password"
@@ -88,13 +87,15 @@ const StudentForm = ({
           type="password"
           defaultValue={data?.password}
           register={register}
-          error={errors?.password}
+          error={errors.password}
         />
       </div>
 
+      {/* PERSONAL INFO */}
       <span className="text-xs text-gray-400 font-medium">
         Personal Information
       </span>
+
       <CldUploadWidget
         uploadPreset="SchoolSync"
         onSuccess={(result, { widget }) => {
@@ -152,6 +153,7 @@ const StudentForm = ({
         <InputField
           label="Birthday"
           name="birthday"
+          type="date"
           defaultValue={
             data?.birthday
               ? new Date(data.birthday).toISOString().split("T")[0]
@@ -159,27 +161,35 @@ const StudentForm = ({
           }
           register={register}
           error={errors.birthday}
-          type="date"
         />
-        <InputField
-          label="Parent Id"
-          name="parentId"
-          defaultValue={data?.parentId}
-          register={register}
-          error={errors.parentId}
-        />
-        {data && (
-          <InputField
-            label="Id"
-            name="id"
-            defaultValue={data?.id}
-            register={register}
-            error={errors?.id}
-            hidden
-          />
-        )}
 
-        {/* Sex */}
+        {/* PARENT SELECT — FIXED */}
+        <div className="flex flex-col gap-2 w-full md:w-1/4">
+          <label className="text-xs text-gray-500">Parent</label>
+          <select
+            className="ring-[1.5px] ring-gray-300 p-2 rounded-md text-sm w-full"
+            {...register("parentId")}
+            defaultValue={data?.parentId || ""}
+          >
+            <option value="">Select Parent</option>
+
+            {parents.map(
+              (parent: { id: string; name: string; phone: string }) => (
+                <option value={parent.id} key={parent.id}>
+                  {parent.name} 
+                </option>
+              )
+            )}
+          </select>
+
+          {errors.parentId?.message && (
+            <p className="text-xs text-red-400">
+              {errors.parentId.message.toString()}
+            </p>
+          )}
+        </div>
+
+        {/* SEX */}
         <div className="flex flex-col gap-2 w-full md:w-1/4">
           <label className="text-xs text-gray-500">Sex</label>
           <select
@@ -197,7 +207,7 @@ const StudentForm = ({
           )}
         </div>
 
-        {/* Grade */}
+        {/* GRADE */}
         <div className="flex flex-col gap-2 w-full md:w-1/4">
           <label className="text-xs text-gray-500">Grade</label>
           <select
@@ -218,7 +228,7 @@ const StudentForm = ({
           )}
         </div>
 
-        {/* Class */}
+        {/* CLASS */}
         <div className="flex flex-col gap-2 w-full md:w-1/4">
           <label className="text-xs text-gray-500">Class</label>
           <select
@@ -234,9 +244,8 @@ const StudentForm = ({
                 _count: { students: number };
               }) => (
                 <option value={classItem.id} key={classItem.id}>
-                  ({classItem.name} -{" "}
-                  {classItem._count.students + "/" + classItem.capacity}{" "}
-                  Capacity)
+                  {classItem.name} —{" "}
+                  {classItem._count.students + "/" + classItem.capacity}
                 </option>
               )
             )}
@@ -248,6 +257,17 @@ const StudentForm = ({
           )}
         </div>
       </div>
+
+      {/* ID (edit only) */}
+      {data && (
+        <InputField
+          label="Id"
+          name="id"
+          defaultValue={data?.id}
+          register={register}
+          hidden
+        />
+      )}
 
       <button type="submit" className="bg-blue-400 text-white p-2 rounded-md">
         {type === "create" ? "Create" : "Update"}

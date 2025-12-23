@@ -1,68 +1,59 @@
 import { clsx } from "clsx";
 import { twMerge } from "tailwind-merge";
 
-/**
- * Merge class names safely
- */
+/** Merge class names */
 export function cn(...inputs: (string | undefined | null | false)[]) {
   return twMerge(clsx(inputs));
 }
 
-/**
- * Get current work week starting from Monday
- */
-const currentWorkWeek = () => {
+/** Get current week starting Monday */
+export const currentWorkWeek = () => {
   const today = new Date();
-  const dayOfWeek = today.getDay();
+  const day = today.getDay();
+  const monday = new Date(today);
 
-  const startOfWeek = new Date(today);
-
-  if (dayOfWeek === 0) {
-    // Sunday → move to Monday
-    startOfWeek.setDate(today.getDate() + 1);
-  } else if (dayOfWeek === 6) {
-    // Saturday → move to Monday
-    startOfWeek.setDate(today.getDate() + 2);
-  } else {
-    // Monday–Friday → move back to Monday
-    startOfWeek.setDate(today.getDate() - (dayOfWeek - 1));
-  }
-
-  startOfWeek.setHours(0, 0, 0, 0);
-  return startOfWeek;
+  // Move to Monday
+  const diff = day === 0 ? -6 : 1 - day;
+  monday.setDate(today.getDate() + diff);
+  monday.setHours(0, 0, 0, 0);
+  return monday;
 };
 
-/**
- * Adjust lessons so they align with the current week
- */
+/** Convert DB lessons to calendar events */
 export const adjustScheduleToCurrentWeek = (
-  lessons: { title: string; start: Date; end: Date }[]
-): { title: string; start: Date; end: Date }[] => {
-  const startOfWeek = currentWorkWeek();
+  lessons: {
+    title: string;
+    day: string;
+    startTime: Date;
+    endTime: Date;
+  }[]
+) => {
+  const weekStart = currentWorkWeek();
 
-  return lessons.map((lesson) => {
-    const lessonDayOfWeek = lesson.start.getDay();
-    const daysFromMonday = lessonDayOfWeek === 0 ? 6 : lessonDayOfWeek - 1;
+  const dayToIndex: Record<string, number> = {
+    MONDAY: 0,
+    TUESDAY: 1,
+    WEDNESDAY: 2,
+    THURSDAY: 3,
+    FRIDAY: 4,
+    SATURDAY: 5,
+    SUNDAY: 6,
+  };
 
-    const adjustedStartDate = new Date(startOfWeek);
-    adjustedStartDate.setDate(startOfWeek.getDate() + daysFromMonday);
-    adjustedStartDate.setHours(
-      lesson.start.getHours(),
-      lesson.start.getMinutes(),
-      lesson.start.getSeconds()
-    );
+  return lessons.map((l) => {
+    const index = dayToIndex[l.day];
 
-    const adjustedEndDate = new Date(adjustedStartDate);
-    adjustedEndDate.setHours(
-      lesson.end.getHours(),
-      lesson.end.getMinutes(),
-      lesson.end.getSeconds()
-    );
+    const startDB = new Date(l.startTime);
+    const endDB = new Date(l.endTime);
 
-    return {
-      title: lesson.title,
-      start: adjustedStartDate,
-      end: adjustedEndDate,
-    };
+    const start = new Date(weekStart);
+    start.setDate(weekStart.getDate() + index);
+    start.setHours(startDB.getHours(), startDB.getMinutes(), 0, 0);
+
+    const end = new Date(weekStart);
+    end.setDate(weekStart.getDate() + index);
+    end.setHours(endDB.getHours(), endDB.getMinutes(), 0, 0);
+
+    return { title: l.title, start, end };
   });
 };

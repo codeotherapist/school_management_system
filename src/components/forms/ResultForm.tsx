@@ -61,15 +61,16 @@ const ResultForm = ({
       <h1 className="text-xl font-semibold">
         {type === "create" ? "Create Result" : "Update Result"}
       </h1>
+<InputField
+  label="Score"
+  name="score"
+  type="number"
+  defaultValue={data?.score}
+  register={register}
+  inputProps={{ min: 0, max: 100 }}
+  error={errors.score}
+/>
 
-      <InputField
-        label="Score"
-        name="score"
-        type="number"
-        defaultValue={data?.score}
-        register={register}
-        error={errors.score}
-      />
 
       {/* Exam select */}
       <div>

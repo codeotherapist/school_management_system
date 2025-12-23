@@ -5,7 +5,6 @@ import TableSearch from "@/components/TableSearch";
 import prisma from "@/lib/prisma";
 import { ITEM_PER_PAGE } from "@/lib/settings";
 import { Assignment, Class, Prisma, Subject, Teacher } from "@prisma/client";
-import Image from "next/image";
 import { auth } from "@clerk/nextjs/server";
 
 type AssignmentList = Assignment & {
@@ -16,13 +15,12 @@ type AssignmentList = Assignment & {
   };
 };
 
-// ✅ Helper to build query with proper role handling
 async function buildAssignmentQuery(
   role: string | undefined,
   currentUserId: string | null,
   queryParams: { [key: string]: string | undefined }
 ): Promise<Prisma.AssignmentWhereInput> {
-  const query: Prisma.AssignmentWhereInput = { lesson: {} };
+  const lessonWhere: Prisma.LessonWhereInput = {};
 
   // 🔍 Filters from URL
   for (const [key, value] of Object.entries(queryParams)) {
@@ -30,13 +28,13 @@ async function buildAssignmentQuery(
 
     switch (key) {
       case "classId":
-        (query.lesson as Prisma.LessonWhereInput).classId = parseInt(value);
+        lessonWhere.classId = parseInt(value);
         break;
       case "teacherId":
-        (query.lesson as Prisma.LessonWhereInput).teacherId = value;
+        lessonWhere.teacherId = value;
         break;
       case "search":
-        (query.lesson as Prisma.LessonWhereInput).subject = {
+        lessonWhere.subject = {
           name: { contains: value, mode: "insensitive" },
         };
         break;
@@ -44,42 +42,50 @@ async function buildAssignmentQuery(
   }
 
   // 👤 Role-based restrictions
+  // 👉 Admin & Teacher: SAME permissions => no extra lesson filter
   switch (role) {
-    case "teacher": {
-      const teacher = await prisma.teacher.findUnique({
-        where: { id: currentUserId! }, // ✅ FIXED
-      });
-      if (teacher) {
-        (query.lesson as Prisma.LessonWhereInput).teacherId = teacher.id;
-      }
-      break;
-    }
-
     case "student": {
-      const student = await prisma.student.findUnique({
-        where: { id: currentUserId! }, // ✅ FIXED
-      });
-      if (student) {
-        (query.lesson as Prisma.LessonWhereInput).classId = student.classId;
+      if (currentUserId) {
+        const student = await prisma.student.findUnique({
+          where: { id: currentUserId },
+        });
+        if (student) {
+          lessonWhere.classId = student.classId;
+        }
       }
       break;
     }
 
     case "parent": {
-      const parent = await prisma.parent.findUnique({
-        where: { id: currentUserId! }, // ✅ FIXED
-        include: { students: true },
-      });
-      if (parent) {
-        (query.lesson as Prisma.LessonWhereInput).classId = {
-          in: parent.students.map((s) => s.classId),
-        };
+      if (currentUserId) {
+        const parent = await prisma.parent.findUnique({
+          where: { id: currentUserId },
+          include: { students: true },
+        });
+        if (parent && parent.students.length > 0) {
+          lessonWhere.classId = {
+            in: parent.students.map((s) => s.classId),
+          };
+        }
       }
       break;
     }
+
+    // case "teacher": no extra restriction → same as admin
+    // default (admin/unknown): no extra restriction
   }
 
-  return query;
+  const hasLessonConditions = Object.keys(lessonWhere).length > 0;
+
+  if (!hasLessonConditions) {
+    return {}; // no filters => all assignments
+  }
+
+  return {
+    lesson: {
+      is: lessonWhere,
+    },
+  };
 }
 
 const AssignmentListPage = async ({
@@ -94,7 +100,6 @@ const AssignmentListPage = async ({
   const { page, ...queryParams } = searchParams;
   const p = page ? parseInt(page) : 1;
 
-  // ✅ Build query safely
   const query = await buildAssignmentQuery(role, currentUserId, queryParams);
 
   const [data, count] = await prisma.$transaction([
@@ -118,8 +123,16 @@ const AssignmentListPage = async ({
   const columns = [
     { header: "Subject Name", accessor: "name" },
     { header: "Class", accessor: "class" },
-    { header: "Teacher", accessor: "teacher", className: "hidden md:table-cell" },
-    { header: "Due Date", accessor: "dueDate", className: "hidden md:table-cell" },
+    {
+      header: "Teacher",
+      accessor: "teacher",
+      className: "hidden md:table-cell",
+    },
+    {
+      header: "Due Date",
+      accessor: "dueDate",
+      className: "hidden md:table-cell",
+    },
     ...(role === "admin" || role === "teacher"
       ? [{ header: "Actions", accessor: "action" }]
       : []),
@@ -130,7 +143,9 @@ const AssignmentListPage = async ({
       key={item.id}
       className="border-b border-gray-200 even:bg-slate-50 text-sm hover:bg-lamaPurpleLight"
     >
-      <td className="flex items-center gap-4 p-4">{item.lesson.subject.name}</td>
+      <td className="flex items-center gap-4 p-4">
+        {item.lesson.subject.name}
+      </td>
       <td>{item.lesson.class.name}</td>
       <td className="hidden md:table-cell">
         {item.lesson.teacher.name + " " + item.lesson.teacher.surname}
@@ -155,24 +170,22 @@ const AssignmentListPage = async ({
     <div className="bg-white p-4 rounded-md flex-1 m-4 mt-0">
       {/* TOP */}
       <div className="flex items-center justify-between">
-        <h1 className="hidden md:block text-lg font-semibold">All Assignments</h1>
+        <h1 className="hidden md:block text-lg font-semibold">
+          All Assignments
+        </h1>
         <div className="flex flex-col md:flex-row items-center gap-4 w-full md:w-auto">
           <TableSearch />
           <div className="flex items-center gap-4 self-end">
-            <button className="w-8 h-8 flex items-center justify-center rounded-full bg-lamaYellow">
-              <Image src="/filter.png" alt="" width={14} height={14} />
-            </button>
-            <button className="w-8 h-8 flex items-center justify-center rounded-full bg-lamaYellow">
-              <Image src="/sort.png" alt="" width={14} height={14} />
-            </button>
             {(role === "admin" || role === "teacher") && (
               <FormContainer table="assignment" type="create" />
             )}
           </div>
         </div>
       </div>
+
       {/* LIST */}
       <Table columns={columns} renderRow={renderRow} data={data} />
+
       {/* PAGINATION */}
       <Pagination page={p} count={count} />
     </div>

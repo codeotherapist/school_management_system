@@ -10,7 +10,7 @@ import "react-toastify/dist/ReactToastify.css";
 type Props = {
   students: Student[];
   lessons: Lesson[];
-  canEdit: boolean; // ✅ new prop
+  canEdit: boolean;
 };
 
 export default function AttendanceClient({
@@ -26,33 +26,56 @@ export default function AttendanceClient({
   const [attendance, setAttendance] = useState<Record<string, boolean>>({});
   const [search, setSearch] = useState("");
 
-  // Init attendance state
-  useEffect(() => {
-    const initial: Record<string, boolean> = {};
-    students.forEach((s) => (initial[s.id] = true));
-    setAttendance(initial);
-  }, [students]);
+  // 🔎 Helper: get current lesson + its students (by classId)
+  const currentLesson =
+    selectedLesson !== null
+      ? lessons.find((l) => l.id === selectedLesson) || null
+      : null;
 
-  // Fetch past records when lesson/date changes
+  const studentsForLesson: Student[] = currentLesson
+    ? students.filter((s) => s.classId === currentLesson.classId)
+    : [];
+
+  // ✅ Init attendance state WHEN lesson changes:
+  //     - Only students of that lesson's class
+  //     - Default = ABSENT
+  useEffect(() => {
+    if (!currentLesson) {
+      setAttendance({});
+      return;
+    }
+
+    const initial: Record<string, boolean> = {};
+    studentsForLesson.forEach((s) => {
+      initial[s.id] = false;
+    });
+    setAttendance(initial);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedLesson, students]); // re-init when lesson or students change
+
+  // ✅ Fetch past records when lesson/date changes
   useEffect(() => {
     const fetchRecords = async () => {
-      if (!selectedLesson) return;
+      if (!selectedLesson || !currentLesson) return;
+
       const data = await getAttendance(selectedLesson, new Date(date));
       setRecords(data);
 
-      // preload attendance state from DB
+      // ✅ preload attendance only for students in this lesson's class
       const updated: Record<string, boolean> = {};
-      students.forEach((s) => {
+      studentsForLesson.forEach((s) => {
         const found = data.find((r) => r.studentId === s.id);
-        updated[s.id] = found ? found.present : true;
+        updated[s.id] = found ? found.present : false;
       });
       setAttendance(updated);
     };
+
     fetchRecords();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedLesson, date, students]);
 
   const toggleAttendance = (studentId: string) => {
-    if (!canEdit) return; // ✅ only allow if admin/teacher
+    if (!canEdit) return;
     setAttendance((prev) => ({
       ...prev,
       [studentId]: !prev[studentId],
@@ -60,8 +83,8 @@ export default function AttendanceClient({
   };
 
   const handleSave = async () => {
-    if (!canEdit) return; // ✅ block students/parents
-    if (!selectedLesson) {
+    if (!canEdit) return;
+    if (!selectedLesson || !currentLesson) {
       toast.error("Please select a lesson ", {
         position: "bottom-right",
         style: { background: "black", color: "white" },
@@ -69,8 +92,10 @@ export default function AttendanceClient({
       return;
     }
 
-    for (const [studentId, present] of Object.entries(attendance)) {
-      await markAttendance(studentId, selectedLesson, present, new Date(date));
+    // ✅ Only save attendance for students of this lesson's class
+    for (const s of studentsForLesson) {
+      const present = attendance[s.id] ?? false;
+      await markAttendance(s.id, selectedLesson, present, new Date(date));
     }
 
     toast.success("Attendance saved ", {
@@ -79,8 +104,8 @@ export default function AttendanceClient({
     });
   };
 
-  // Filter students by search
-  const filteredStudents = students.filter((s) =>
+  // Filter students of this lesson by search
+  const filteredStudents = studentsForLesson.filter((s) =>
     `${s.name} ${s.surname}`.toLowerCase().includes(search.toLowerCase())
   );
 
@@ -111,7 +136,11 @@ export default function AttendanceClient({
         />
         <select
           value={selectedLesson ?? ""}
-          onChange={(e) => setSelectedLesson(Number(e.target.value))}
+          onChange={(e) =>
+            setSelectedLesson(
+              e.target.value ? Number(e.target.value) : (null as any)
+            )
+          }
           className="rounded-lg border border-gray-300 px-4 py-2 w-1/3"
         >
           <option value="">Select Lesson</option>
@@ -132,7 +161,9 @@ export default function AttendanceClient({
               key={student.id}
               className="flex items-center justify-between rounded-xl border p-4 shadow-sm bg-gray-50"
             >
-              <span className="font-medium">{student.name}</span>
+              <span className="font-medium">
+                {student.name} {student.surname}
+              </span>
 
               {canEdit ? (
                 <Button
@@ -158,6 +189,12 @@ export default function AttendanceClient({
               )}
             </div>
           ))}
+
+          {selectedLesson && filteredStudents.length === 0 && (
+            <p className="text-sm text-gray-500">
+              No students found for this lesson&apos;s class.
+            </p>
+          )}
         </div>
 
         {/* Save Button (only Admin/Teacher) */}

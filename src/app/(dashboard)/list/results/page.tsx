@@ -72,8 +72,14 @@ const ResultListPage = async ({
   const { page, ...queryParams } = searchParams;
   const p = page ? parseInt(page) : 1;
 
-  // URL PARAMS CONDITION
-  const query: Prisma.ResultWhereInput = {};
+  /* ==============================================================
+     BUILD QUERY
+  ============================================================== */
+  const query: Prisma.ResultWhereInput = {
+    student: {
+      isDeleted: false, // ⬅️ EXCLUDE DELETED STUDENTS FROM ALL RESULTS
+    },
+  };
 
   if (queryParams) {
     for (const [key, value] of Object.entries(queryParams)) {
@@ -88,14 +94,12 @@ const ResultListPage = async ({
               { student: { name: { contains: value, mode: "insensitive" } } },
             ];
             break;
-          default:
-            break;
         }
       }
     }
   }
 
-  // ROLE CONDITIONS
+  // ROLE FILTERS
   switch (role) {
     case "admin":
       break;
@@ -109,17 +113,15 @@ const ResultListPage = async ({
 
     case "student": {
       const student = await prisma.student.findUnique({
-        where: { id: currentUserId! }, // adjust if Clerk userId is stored in another field
+        where: { id: currentUserId! },
       });
-      if (student) {
-        query.studentId = student.id;
-      }
+      if (student) query.studentId = student.id;
       break;
     }
 
     case "parent": {
       const parent = await prisma.parent.findUnique({
-        where: { id: currentUserId! }, // adjust if Clerk userId is stored differently
+        where: { id: currentUserId! },
         include: { students: true },
       });
       if (parent) {
@@ -127,11 +129,11 @@ const ResultListPage = async ({
       }
       break;
     }
-
-    default:
-      break;
   }
 
+  /* ==============================================================
+     FETCH RESULTS (ONLY ACTIVE STUDENT RESULTS)
+  ============================================================== */
   const [dataRes, count] = await prisma.$transaction([
     prisma.result.findMany({
       where: query,
@@ -161,9 +163,14 @@ const ResultListPage = async ({
       take: ITEM_PER_PAGE,
       skip: ITEM_PER_PAGE * (p - 1),
     }),
-    prisma.result.count({ where: query }),
+    prisma.result.count({
+      where: query,
+    }),
   ]);
 
+  /* ==============================================================
+     FORMAT DATA
+  ============================================================== */
   const data = dataRes
     .map((item) => {
       const assessment = item.exam || item.assignment;
@@ -191,21 +198,14 @@ const ResultListPage = async ({
         <div className="flex flex-col md:flex-row items-center gap-4 w-full md:w-auto">
           <TableSearch />
           <div className="flex items-center gap-4 self-end">
-            <button className="w-8 h-8 flex items-center justify-center rounded-full bg-lamaYellow">
-              <Image src="/filter.png" alt="" width={14} height={14} />
-            </button>
-            <button className="w-8 h-8 flex items-center justify-center rounded-full bg-lamaYellow">
-              <Image src="/sort.png" alt="" width={14} height={14} />
-            </button>
             {(role === "admin" || role === "teacher") && (
               <FormContainer table="result" type="create" />
             )}
           </div>
         </div>
       </div>
-      {/* LIST */}
+
       <Table columns={columns} renderRow={renderRow} data={data} />
-      {/* PAGINATION */}
       <Pagination page={p} count={count} />
     </div>
   );

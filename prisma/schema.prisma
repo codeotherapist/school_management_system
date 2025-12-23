@@ -13,26 +13,27 @@ model Admin {
 }
 
 model Student {
-  id          String       @id
-  username    String       @unique
+  id          String    @id
+  username    String    @unique
   name        String
   surname     String
-  email       String?      @unique
-  phone       String?      @unique
+  email       String?   @unique
+  phone       String?   @unique
   address     String
   img         String?
   bloodType   String
   sex         UserSex
-  createdAt   DateTime     @default(now())
+  createdAt   DateTime  @default(now())
   parentId    String
-  parent      Parent       @relation(fields: [parentId], references: [id])
+  parent      Parent    @relation(fields: [parentId], references: [id])
   classId     Int
-  class       Class        @relation(fields: [classId], references: [id])
+  class       Class     @relation(fields: [classId], references: [id])
   gradeId     Int
-  grade       Grade        @relation(fields: [gradeId], references: [id])
+  grade       Grade     @relation(fields: [gradeId], references: [id])
   attendances Attendance[]
   results     Result[]
   birthday    DateTime
+  isDeleted   Boolean   @default(false)
 }
 
 model Teacher {
@@ -51,7 +52,9 @@ model Teacher {
   lessons   Lesson[]
   classes   Class[]
   birthday  DateTime
+  isDeleted Boolean   @default(false)
 }
+
 
 model Parent {
   id        String    @id

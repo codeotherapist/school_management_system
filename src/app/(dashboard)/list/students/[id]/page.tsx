@@ -1,8 +1,8 @@
 import Announcements from "@/components/Announcements";
 import BigCalendarContainer from "@/components/BigCalendarContainer";
 import FormContainer from "@/components/FormContainer";
-import Performance from "@/components/Performance";
 import StudentAttendanceCard from "@/components/StudentAttendanceCard";
+import StudentPerformance from "@/components/StudentPerformance";
 import prisma from "@/lib/prisma";
 import { auth } from "@clerk/nextjs/server";
 import { Class, Student } from "@prisma/client";
@@ -17,7 +17,11 @@ const SingleStudentPage = async ({
   params: { id: string };
 }) => {
   const { sessionClaims } = await auth();
-  const role = (sessionClaims?.metadata as { role?: string })?.role;
+
+  // Read role from publicMetadata (fallback to metadata)
+  const role =
+    (sessionClaims?.publicMetadata as { role?: string })?.role ??
+    (sessionClaims?.metadata as { role?: string })?.role;
 
   const student:
     | (Student & {
@@ -56,8 +60,14 @@ const SingleStudentPage = async ({
                 <h1 className="text-xl font-semibold">
                   {student.name + " " + student.surname}
                 </h1>
-                {role === "admin" && (
-                  <FormContainer table="student" type="update" data={student} />
+
+                {/* ✅ Admin AND Teacher can see Update option */}
+                {(role === "admin" || role === "teacher") && (
+                  <FormContainer
+                    table="student"
+                    type="update"
+                    data={student}
+                  />
                 )}
               </div>
               <p className="text-sm text-gray-500">
@@ -166,12 +176,7 @@ const SingleStudentPage = async ({
             >
               Student&apos;s Lessons
             </Link>
-            <Link
-              className="p-3 rounded-md bg-lamaPurpleLight"
-              href={`/list/teachers?classId=${student.class.id}`}
-            >
-              Student&apos;s Teachers
-            </Link>
+           
             <Link
               className="p-3 rounded-md bg-pink-50"
               href={`/list/exams?classId=${student.class.id}`}
@@ -192,7 +197,7 @@ const SingleStudentPage = async ({
             </Link>
           </div>
         </div>
-        <Performance />
+        <StudentPerformance studentId={student.id} />
         <Announcements />
       </div>
     </div>
