@@ -8,7 +8,7 @@ export async function POST(req: Request) {
   const { userId, sessionClaims } = await auth();
   const role = (sessionClaims?.metadata as { role?: string })?.role;
 
-  // still only allow teachers to generate QR
+  // Only teachers allowed
   if (!userId || role !== "teacher") {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
@@ -24,27 +24,27 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "Invalid lessonId" }, { status: 400 });
   }
 
-  // 🔥 allow ANY lesson (no teacherId condition now)
-  const lesson = await prisma.lesson.findFirst({
+  // Get lesson and include class + subject
+  const lesson = await prisma.lesson.findUnique({
     where: { id: numericLessonId },
     include: { class: true, subject: true },
   });
 
   if (!lesson) {
-    return NextResponse.json(
-      { error: "Lesson not found" },
-      { status: 404 }
-    );
+    return NextResponse.json({ error: "Lesson not found" }, { status: 404 });
   }
 
-  const todayStr = date || new Date().toISOString().slice(0, 10); // YYYY-MM-DD
+  // Use provided date or today
+  const todayStr = date
+    ? new Date(date).toISOString().slice(0, 10)
+    : new Date().toISOString().slice(0, 10);
 
   const payload: LessonQrPayload = {
     type: "lesson_attendance",
     lessonId: numericLessonId,
     date: todayStr,
     nonce: uuidv4(),
-    exp: Math.floor(Date.now() / 1000) + 60 * 15,
+    exp: Math.floor(Date.now() / 1000) + 60 * 15, // 15 minutes expiry
   };
 
   const qrString = signLessonQr(payload);
@@ -54,7 +54,7 @@ export async function POST(req: Request) {
     metadata: {
       lessonId: lesson.id,
       className: lesson.class.name,
-      subjectId: lesson.subjectId,
+      subjectId: lesson.subject?.id ?? null, // safe fallback
       date: todayStr,
       exp: payload.exp,
     },

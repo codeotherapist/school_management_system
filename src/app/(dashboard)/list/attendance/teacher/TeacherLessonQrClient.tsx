@@ -3,13 +3,14 @@
 import { useState } from "react";
 import { QRCodeSVG } from "qrcode.react"; // ✅ named import
 
+// 🔹 Use the same type as we mapped in the backend
 type Lesson = {
   id: number;
   name: string;
-  startTime: string;
-  endTime: string;
+  startTime: string; // ISO string
+  endTime: string;   // ISO string
   class: { name: string };
-  subject: { id: number; name?: string } | null;
+  subject: { id: number; name: string };
 };
 
 type Props = {
@@ -19,10 +20,11 @@ type Props = {
 export default function TeacherLessonQrClient({ lessons }: Props) {
   const [selectedLessonId, setSelectedLessonId] = useState<number | null>(null);
   const [qrString, setQrString] = useState<string | null>(null);
-  const [info, setInfo] = useState<any>(null);
+  const [info, setInfo] = useState<{ lessonId: number; className: string; date: string } | null>(null);
   const [loading, setLoading] = useState(false);
   const [finishing, setFinishing] = useState(false);
 
+  // Generate QR for selected lesson
   async function handleGenerate() {
     if (!selectedLessonId) return;
     setLoading(true);
@@ -31,7 +33,6 @@ export default function TeacherLessonQrClient({ lessons }: Props) {
 
     try {
       const res = await fetch("/api/generate-lesson-qr", {
-        // or "/api/attendance/generate-lesson-qr" if that's where your route is
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ lessonId: selectedLessonId }),
@@ -47,13 +48,13 @@ export default function TeacherLessonQrClient({ lessons }: Props) {
       }
     } catch (err) {
       console.error(err);
-      alert("");
+      alert("Error generating QR");
     } finally {
       setLoading(false);
     }
   }
 
-  // 🔥 NEW: Finish QR attendance → marks all non-scanned students as ABSENT
+  // Finish attendance (mark remaining as absent)
   async function handleFinishAttendance() {
     if (!selectedLessonId) {
       alert("Please select a lesson first.");
@@ -77,7 +78,7 @@ export default function TeacherLessonQrClient({ lessons }: Props) {
       }
     } catch (err) {
       console.error(err);
-      alert("");
+      alert("Error finalizing attendance");
     } finally {
       setFinishing(false);
     }
@@ -111,7 +112,7 @@ export default function TeacherLessonQrClient({ lessons }: Props) {
               <option value="">-- choose lesson --</option>
               {lessons.map((lesson) => (
                 <option key={lesson.id} value={lesson.id}>
-                  {lesson.name} – {lesson.class.name}
+                  {lesson.name} – {lesson.class.name} ({lesson.subject.name})
                 </option>
               ))}
             </select>
@@ -121,13 +122,11 @@ export default function TeacherLessonQrClient({ lessons }: Props) {
             <button
               onClick={handleGenerate}
               disabled={!selectedLessonId || loading}
-       className="px-4 py-2 rounded bg-blue-500 hover:bg-blue-600 text-white disabled:opacity-50 w-max"
-
+              className="px-4 py-2 rounded bg-blue-500 hover:bg-blue-600 text-white disabled:opacity-50 w-max"
             >
               {loading ? "Generating..." : "Generate QR"}
             </button>
 
-            {/* 🔥 NEW: Finish Attendance button */}
             <button
               onClick={handleFinishAttendance}
               disabled={!selectedLessonId || finishing}
@@ -141,7 +140,6 @@ export default function TeacherLessonQrClient({ lessons }: Props) {
 
       {qrString && (
         <div className="mt-4 flex flex-col items-center gap-2">
-          {/* ✅ QRCodeSVG instead of QRCode */}
           <QRCodeSVG value={qrString} size={256} />
           {info && (
             <p className="text-sm text-gray-600 text-center">

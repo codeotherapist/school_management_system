@@ -2,13 +2,17 @@ import { NextResponse } from "next/server";
 import { auth } from "@clerk/nextjs/server";
 import { finalizeLessonAttendance } from "@/lib/actions";
 
+interface FinalizeRequestBody {
+  lessonId?: number | string;
+}
+
 // POST /api/attendance/finalize
 export async function POST(req: Request) {
   try {
     const { userId, sessionClaims } = await auth();
     const role = (sessionClaims?.metadata as { role?: string })?.role;
 
-    // ✅ Only teacher or admin can finalize attendance
+    // Only teachers or admins
     if (!userId || (role !== "teacher" && role !== "admin")) {
       return NextResponse.json(
         { ok: false, error: "Unauthorized" },
@@ -16,7 +20,7 @@ export async function POST(req: Request) {
       );
     }
 
-    const body = await req.json();
+    const body: FinalizeRequestBody = await req.json();
     const lessonId = body?.lessonId;
 
     if (!lessonId) {
@@ -26,7 +30,16 @@ export async function POST(req: Request) {
       );
     }
 
-    await finalizeLessonAttendance(Number(lessonId), new Date());
+    const numericLessonId = Number(lessonId);
+    if (Number.isNaN(numericLessonId)) {
+      return NextResponse.json(
+        { ok: false, error: "Invalid lessonId" },
+        { status: 400 }
+      );
+    }
+
+    // Finalize attendance for the lesson
+    await finalizeLessonAttendance(numericLessonId, new Date());
 
     return NextResponse.json({
       ok: true,
