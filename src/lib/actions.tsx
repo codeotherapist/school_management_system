@@ -540,23 +540,7 @@ export const createExam = async (
   currentState: CurrentState,
   data: ExamSchema
 ) => {
-  const { userId, sessionClaims } = await auth();
-  const role = (sessionClaims?.metadata as { role?: string })?.role;
-
   try {
-    if (role === "teacher") {
-      const teacherLesson = await prisma.lesson.findFirst({
-        where: {
-          teacherId: userId!,
-          id: Number(data.lessonId),
-        },
-      });
-
-      if (!teacherLesson) {
-        return { success: false, error: true };
-      }
-    }
-
     await prisma.exam.create({
       data: {
         title: data.title,
@@ -573,27 +557,12 @@ export const createExam = async (
   }
 };
 
+
 export const updateExam = async (
   currentState: CurrentState,
   data: ExamSchema
 ) => {
-  const { userId, sessionClaims } = await auth();
-  const role = (sessionClaims?.metadata as { role?: string })?.role;
-
   try {
-    if (role === "teacher") {
-      const teacherLesson = await prisma.lesson.findFirst({
-        where: {
-          teacherId: userId!,
-          id: Number(data.lessonId),
-        },
-      });
-
-      if (!teacherLesson) {
-        return { success: false, error: true };
-      }
-    }
-
     await prisma.exam.update({
       where: { id: Number(data.id) },
       data: {
@@ -610,6 +579,7 @@ export const updateExam = async (
     return { success: false, error: true };
   }
 };
+
 
 export const deleteExam = async (
   currentState: CurrentState,

@@ -108,17 +108,24 @@ const ExamForm = ({
         )}
         <div className="flex flex-col gap-2 w-full md:w-1/4">
           <label className="text-xs text-gray-500">Lesson</label>
-          <select
-            className="ring-[1.5px] ring-gray-300 p-2 rounded-md text-sm w-full"
-            {...register("lessonId")}
-            defaultValue={data?.teachers}
-          >
-            {lessons.map((lesson: { id: number; name: string }) => (
-              <option value={lesson.id} key={lesson.id}>
-                {lesson.name}
-              </option>
-            ))}
-          </select>
+      <select
+  className="ring-[1.5px] ring-gray-300 p-2 rounded-md text-sm w-full"
+  {...register("lessonId")}
+  defaultValue={data?.lessonId}
+>
+  {lessons.map(
+    (lesson: {
+      id: number;
+      name: string;
+      class: { name: string };
+      teacher: { name: string; surname: string };
+    }) => (
+      <option value={lesson.id} key={lesson.id}>
+        {lesson.name} — {lesson.class.name} — {lesson.teacher.name} {lesson.teacher.surname}
+      </option>
+    )
+  )}
+</select>
           {errors.lessonId?.message && (
             <p className="text-xs text-red-400">
               {errors.lessonId.message.toString()}

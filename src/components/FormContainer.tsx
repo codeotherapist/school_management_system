@@ -113,24 +113,20 @@ case "student": {
     /* ------------------------------
        EXAM FORM
        ------------------------------ */
-    case "exam": {
-      const { userId, sessionClaims } = await auth();
-      const role = (
-        sessionClaims?.metadata as {
-          role?: "admin" | "teacher" | "student" | "parent";
-        }
-      )?.role;
+case "exam": {
+  const examLessons = await prisma.lesson.findMany({
+    select: {
+      id: true,
+      name: true,
+      class: { select: { name: true } },
+      teacher: { select: { name: true, surname: true } },
+    },
+  });
 
-      const examLessons = await prisma.lesson.findMany({
-        where: {
-          ...(role === "teacher" ? { teacherId: userId! } : {}),
-        },
-        select: { id: true, name: true },
-      });
+  relatedData = { lessons: examLessons };
+  break;
+}
 
-      relatedData = { lessons: examLessons };
-      break;
-    }
 
     /* ------------------------------
        LESSON FORM
@@ -171,18 +167,42 @@ case "student": {
     /* ------------------------------
        RESULT FORM
        ------------------------------ */
- case "result": {
+case "result": {
+  // Fetch all exams with class info
   const resultExams = await prisma.exam.findMany({
-    select: { id: true, title: true },
+    select: {
+      id: true,
+      title: true,
+      lesson: {
+        select: {
+          class: { select: { name: true } },  // <-- add class
+        },
+      },
+    },
   });
 
+  // Fetch all assignments with class info
   const resultAssignments = await prisma.assignment.findMany({
-    select: { id: true, title: true },
+    select: {
+      id: true,
+      title: true,
+      lesson: {
+        select: {
+          class: { select: { name: true } },  // <-- add class
+        },
+      },
+    },
   });
 
+  // Fetch all students with class info
   const resultStudents = await prisma.student.findMany({
-    where: { isDeleted: false },  // 🔥 FILTER ACTIVE STUDENTS ONLY
-    select: { id: true, name: true, surname: true },
+    where: { isDeleted: false },
+    select: {
+      id: true,
+      name: true,
+      surname: true,
+      class: { select: { name: true } },  // <-- add class
+    },
   });
 
   relatedData = {

@@ -89,9 +89,7 @@ const ExamListPage = async ({
       break;
 
     case "teacher":
-      query.lesson = {
-        teacherId: currentUserId!,
-      };
+  
       break;
 
     case "student": {

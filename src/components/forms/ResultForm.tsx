@@ -21,7 +21,10 @@ const ResultForm = ({
   relatedData?: {
     exams: { id: number; title: string }[];
     assignments: { id: number; title: string }[];
-    students: { id: string; name: string; surname: string }[];
+    students: { id: string; name: string; surname: string 
+    class: { name: string };
+    }[];
+
   };
 }) => {
   const {
@@ -104,9 +107,9 @@ const ResultForm = ({
         <select {...register("studentId")} defaultValue={data?.studentId || ""} className="w-full p-2 ring-1 ring-gray-300 rounded-md">
           <option value="">Select student</option>
           {students.map((s) => (
-            <option key={s.id} value={s.id}>
-              {s.name} {s.surname}
-            </option>
+           <option value={s.id} key={s.id}>
+  {s.name} {s.surname} — {s.class.name}
+</option>
           ))}
         </select>
         {errors.studentId && (

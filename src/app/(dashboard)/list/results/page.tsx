@@ -105,10 +105,7 @@ const ResultListPage = async ({
       break;
 
     case "teacher":
-      query.OR = [
-        { exam: { lesson: { teacherId: currentUserId! } } },
-        { assignment: { lesson: { teacherId: currentUserId! } } },
-      ];
+     
       break;
 
     case "student": {
