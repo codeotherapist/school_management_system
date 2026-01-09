@@ -14,13 +14,14 @@ const UserCard = async ({
   } else if (type === "student") {
     count = await prisma.student.count({ where: { isDeleted: false } });
   } else {
-    // Admin & Parent stay normal
+    // Admin & Parent
     const modelMap = {
       admin: prisma.admin,
       parent: prisma.parent,
     } as const;
 
-    count = await modelMap[type].count();
+    // ✅ Cast to any to bypass TypeScript union issue
+    count = await (modelMap[type] as any).count();
   }
 
   return (
