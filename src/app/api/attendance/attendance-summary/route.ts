@@ -1,8 +1,8 @@
 import { NextResponse } from "next/server";
 import {
-  summarizeAttendanceByDay,
+  summarizeAttendanceByDate,
   summarizeAttendanceByWeek,
-} from "@/lib/attendanceSummary";
+} from "@/lib/attendance";
 
 export async function GET(req: Request) {
   const { searchParams } = new URL(req.url);
@@ -15,7 +15,7 @@ export async function GET(req: Request) {
 
   const data =
     mode === "daily"
-      ? await summarizeAttendanceByDay(dateISO)
+      ? await summarizeAttendanceByDate(dateISO)
       : await summarizeAttendanceByWeek(dateISO);
 
   return NextResponse.json(data);

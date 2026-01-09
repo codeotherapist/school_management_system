@@ -1,16 +1,18 @@
+// src/lib/attendance.ts
 import prisma from "@/lib/prisma";
 
+// Helper: get Monday and Friday of the week containing dateISO
 function getWeekRange(dateISO: string) {
   const d = new Date(dateISO);
-  const dayOfWeek = d.getDay(); // 0=Sun, 1=Mon, ... 6=Sat
+  const dayOfWeek = d.getDay(); // 0 = Sunday, 1 = Monday ... 6 = Saturday
 
-  // Calculate Monday of the selected week
+  // Calculate Monday
   const monday = new Date(d);
-  const diff = dayOfWeek === 0 ? -6 : 1 - dayOfWeek; // adjust if Sunday
+  const diff = dayOfWeek === 0 ? -6 : 1 - dayOfWeek; // if Sunday, go back 6 days
   monday.setDate(d.getDate() + diff);
   monday.setHours(0, 0, 0, 0);
 
-  // Friday = Monday + 4 days (not strictly needed, but OK to keep)
+  // Friday
   const friday = new Date(monday);
   friday.setDate(monday.getDate() + 4);
   friday.setHours(23, 59, 59, 999);
@@ -18,6 +20,7 @@ function getWeekRange(dateISO: string) {
   return { monday, friday };
 }
 
+// Helper: start and end of a single day
 function toDayRange(d: Date) {
   const start = new Date(d);
   start.setHours(0, 0, 0, 0);
@@ -26,11 +29,12 @@ function toDayRange(d: Date) {
   return { start, end };
 }
 
+// Summarize attendance for a whole week (Mon-Fri)
 export async function summarizeAttendanceByWeek(dateISO: string) {
   const { monday } = getWeekRange(dateISO);
   const daysOfWeek = ["Mon", "Tue", "Wed", "Thu", "Fri"];
 
-  // 🔹 Only active students
+  // Total active students
   const totalStudents = await prisma.student.count({
     where: { isDeleted: false },
   });
@@ -42,12 +46,12 @@ export async function summarizeAttendanceByWeek(dateISO: string) {
 
       const { start, end } = toDayRange(day);
 
-      // ✅ Get all present rows for that date, then count DISTINCT students
+      // Fetch present attendances for that day
       const presentRows = await prisma.attendance.findMany({
         where: {
           date: { gte: start, lte: end },
           present: true,
-          student: { isDeleted: false }, // extra safety
+          student: { isDeleted: false },
         },
         select: { studentId: true },
       });
@@ -56,7 +60,7 @@ export async function summarizeAttendanceByWeek(dateISO: string) {
       const absent = Math.max(totalStudents - present, 0);
 
       return {
-        name: daysOfWeek[i],
+        day: daysOfWeek[i], // Renamed 'name' → 'day' for clarity
         present,
         absent,
       };
@@ -64,4 +68,27 @@ export async function summarizeAttendanceByWeek(dateISO: string) {
   );
 
   return data;
+}
+
+// Optional: Summarize attendance for a single day
+export async function summarizeAttendanceByDate(dateISO: string) {
+  const { start, end } = toDayRange(new Date(dateISO));
+
+  const totalStudents = await prisma.student.count({
+    where: { isDeleted: false },
+  });
+
+  const presentRows = await prisma.attendance.findMany({
+    where: {
+      date: { gte: start, lte: end },
+      present: true,
+      student: { isDeleted: false },
+    },
+    select: { studentId: true },
+  });
+
+  const present = new Set(presentRows.map((r) => r.studentId)).size;
+  const absent = Math.max(totalStudents - present, 0);
+
+  return { date: dateISO, present, absent };
 }
