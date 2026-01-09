@@ -25,7 +25,7 @@ import { toast } from "react-toastify";
 import { FormContainerProps } from "./FormContainer";
 
 /* DELETE ACTION MAP */
-const deleteActionMap: any = {
+const deleteActionMap: Record<string, any> = {
   subject: deleteSubject,
   class: deleteClass,
   teacher: deleteTeacher,
@@ -41,7 +41,7 @@ const deleteActionMap: any = {
 };
 
 /* RESTORE ACTION MAP */
-const restoreActionMap: any = {
+const restoreActionMap: Record<string, any> = {
   teacher: restoreTeacher,
   student: restoreStudent,
 };
@@ -60,7 +60,7 @@ const EventForm = dynamic(() => import("./forms/EventForm"));
 const AnnouncementForm = dynamic(() => import("./forms/AnnouncementForm"));
 
 /* FORM COMPONENT LIST */
-const forms: any = {
+const forms: Record<string, any> = {
   teacher: (setOpen: any, type: any, data: any, rel: any) => (
     <TeacherForm type={type} data={data} setOpen={setOpen} relatedData={rel} />
   ),
@@ -99,18 +99,11 @@ const forms: any = {
   ),
 };
 
-const FormModal = ({
-  table,
-  type,
-  data,
-  id,
-  relatedData,
-}: FormContainerProps & { relatedData?: any }) => {
+const FormModal = ({ table, type, data, id, relatedData }: FormContainerProps & { relatedData?: any }) => {
   const [open, setOpen] = useState(false);
   const router = useRouter();
 
-  const buttonClasses =
-    "w-8 h-8 min-w-8 min-h-8 flex items-center justify-center rounded-full";
+  const buttonClasses = "w-8 h-8 min-w-8 min-h-8 flex items-center justify-center rounded-full";
 
   const bgColor =
     type === "create"
@@ -121,121 +114,84 @@ const FormModal = ({
       ? "bg-blue-500"
       : "bg-lamaPurple";
 
+  // ✅ Always call hook
+  const action = type === "delete" ? deleteActionMap[table] : type === "restore" ? restoreActionMap[table] : null;
+  const [state, formAction] = useFormState(action ?? (() => {}), { success: false, error: false });
+
+  // ✅ Success toast & refresh
+  useEffect(() => {
+    if (state.success) {
+      toast(
+        type === "create"
+          ? `${table} created!`
+          : type === "update"
+          ? `${table} updated!`
+          : type === "delete"
+          ? `${table} deleted!`
+          : `${table} restored!`
+      );
+      setOpen(false);
+      router.refresh();
+    }
+  }, [state.success, type, table, router]);
+
+  // ✅ Error toast
+  useEffect(() => {
+    if (state.error) {
+      const msg =
+        typeof state.error === "string"
+          ? state.error
+          : typeof (state as any).message === "string"
+          ? (state as any).message
+          : "Operation failed";
+      toast.error(msg);
+    }
+  }, [state.error]);
+
   const Form = () => {
-    const action =
-      type === "delete"
-        ? deleteActionMap[table]
-        : type === "restore"
-        ? restoreActionMap[table]
-        : null;
-
-    // Only call useFormState when action exists (delete/restore)
-    const [state, formAction] =
-      action !== null
-        ? useFormState(action as any, { success: false, error: false })
-        : [{ success: false, error: false }, () => {}];
-
-    useEffect(() => {
-      if (state.success) {
-        toast(
-          type === "create"
-            ? `${table} created!`
-            : type === "update"
-            ? `${table} updated!`
-            : type === "delete"
-            ? `${table} deleted!`
-            : `${table} restored!`
+    /* DELETE FORM */
+    if (type === "delete" && id) {
+      if (table === "parent") {
+        return (
+          <form action={formAction} className="p-4 flex flex-col gap-4">
+            <input type="hidden" name="id" value={id} />
+            <span className="text-center font-medium">Are you sure you want to delete this parent?</span>
+            <label className="flex items-center justify-center w-full gap-2 text-sm text-gray-700 text-center">
+              <input type="checkbox" name="force" value="1" className="w-4 h-4" />
+              <span>
+                Also delete <strong>all students</strong> assigned to this parent
+              </span>
+            </label>
+            <div className="flex gap-2 mt-2 items-center justify-center">
+              <button type="submit" className="bg-red-700 text-white py-2 px-4 rounded-md">
+                Delete
+              </button>
+              <button type="button" onClick={() => setOpen(false)} className="bg-gray-200 text-gray-800 py-2 px-4 rounded-md">
+                Cancel
+              </button>
+            </div>
+          </form>
         );
-        setOpen(false);
-        router.refresh();
       }
-    }, [state, router]);
 
-    // show toast when server action returns an error/message
-    useEffect(() => {
-      if (state && (state as any).error) {
-        const errVal = (state as any).error;
-        const msg =
-          typeof errVal === "string"
-            ? errVal
-            : typeof (state as any).message === "string"
-            ? (state as any).message
-            : "Operation failed";
-        toast.error(msg);
-      }
-    }, [state]);
-
-    /* DELETE FORM with force checkbox */
- if (type === "delete" && id) {
-
-  // ✅ SPECIAL DELETE UI ONLY FOR PARENT
-  if (table === "parent") {
-    return (
-      <form action={formAction} className="p-4 flex flex-col gap-4">
-        <input type="hidden" name="id" value={id} />
-
-        <span className="text-center font-medium">
-          Are you sure you want to delete this parent?
-        </span>
-
-      <label className="flex items-center justify-center w-full gap-2 text-sm text-gray-700 text-center">
-  <input type="checkbox" name="force" value="1" className="w-4 h-4" />
-  <span>
-    Also delete <strong>all students</strong> assigned to this parent
-  </span>
-</label>
-        <div className="flex gap-2 mt-2 items-center justify-center">
-          <button
-            type="submit"
-            className="bg-red-700 text-white py-2 px-4 rounded-md"
-          >
+      return (
+        <form action={formAction} className="p-4 flex flex-col gap-4 items-center">
+          <input type="hidden" name="id" value={id} />
+          <span className="text-center font-medium">Are you sure you want to delete this {table}?</span>
+          <button type="submit" className="bg-red-700 text-white py-2 px-4 rounded-md mt-2">
             Delete
           </button>
-
-          <button
-            type="button"
-            onClick={() => setOpen(false)}
-            className="bg-gray-200 text-gray-800 py-2 px-4 rounded-md"
-          >
-            Cancel
-          </button>
-        </div>
-      </form>
-    );
-  }
-
-  // ✅ SIMPLE DELETE UI FOR STUDENT + ALL OTHERS
-  return (
-    <form action={formAction} className="p-4 flex flex-col gap-4 items-center">
-      <input type="hidden" name="id" value={id} />
-
-      <span className="text-center font-medium">
-        Are you sure you want to delete this {table}?
-      </span>
-
-      <button
-        type="submit"
-        className="bg-red-700 text-white py-2 px-4 rounded-md mt-2"
-      >
-        Delete
-      </button>
-    </form>
-  );
-}
-
+        </form>
+      );
+    }
 
     /* RESTORE FORM */
     if (type === "restore" && id) {
       return (
         <form action={formAction} className="p-4 flex flex-col gap-4">
           <input type="hidden" name="id" value={id} />
-          <span className="text-center font-medium">
-            Restore this deleted {table}?
-          </span>
-          <button
-            type="submit"
-            className="bg-green-600 text-white py-2 px-4 rounded-md w-max self-center"
-          >
+          <span className="text-center font-medium">Restore this deleted {table}?</span>
+          <button type="submit" className="bg-green-600 text-white py-2 px-4 rounded-md w-max self-center">
             Restore
           </button>
         </form>
@@ -252,11 +208,7 @@ const FormModal = ({
 
   return (
     <>
-      <button
-        className={`${buttonClasses} ${bgColor}`}
-        style={{ padding: 0 }}
-        onClick={() => setOpen(true)}
-      >
+      <button className={`${buttonClasses} ${bgColor}`} style={{ padding: 0 }} onClick={() => setOpen(true)}>
         <Image src={`/${type}.png`} alt="" width={16} height={16} />
       </button>
 
@@ -264,10 +216,7 @@ const FormModal = ({
         <div className="w-screen h-screen fixed left-0 top-0 bg-black bg-opacity-60 z-50 flex items-center justify-center">
           <div className="bg-white p-4 rounded-md relative w-[90%] md:w-[60%] lg:w-[50%] 2xl:w-[40%]">
             <Form />
-            <div
-              className="absolute top-4 right-4 cursor-pointer"
-              onClick={() => setOpen(false)}
-            >
+            <div className="absolute top-4 right-4 cursor-pointer" onClick={() => setOpen(false)}>
               <Image src="/close.png" alt="" width={14} height={14} />
             </div>
           </div>
