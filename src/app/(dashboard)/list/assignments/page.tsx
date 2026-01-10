@@ -1,11 +1,10 @@
+// src/app/(dashboard)/assignments/page.tsx
 import FormContainer from "@/components/FormContainer";
 import Pagination from "@/components/Pagination";
 import Table from "@/components/Table";
 import TableSearch from "@/components/TableSearch";
-import prisma from "@/lib/prisma";
 import { ITEM_PER_PAGE } from "@/lib/settings";
 import { Assignment, Class, Prisma, Subject, Teacher } from "@prisma/client";
-import { auth } from "@clerk/nextjs/server";
 
 type AssignmentList = Assignment & {
   lesson: {
@@ -18,7 +17,8 @@ type AssignmentList = Assignment & {
 async function buildAssignmentQuery(
   role: string | undefined,
   currentUserId: string | null,
-  queryParams: { [key: string]: string | undefined }
+  queryParams: { [key: string]: string | undefined },
+  prisma: typeof import("@/lib/prisma").default // pass prisma as param
 ): Promise<Prisma.AssignmentWhereInput> {
   const lessonWhere: Prisma.LessonWhereInput = {};
 
@@ -42,50 +42,33 @@ async function buildAssignmentQuery(
   }
 
   // 👤 Role-based restrictions
-  // 👉 Admin & Teacher: SAME permissions => no extra lesson filter
   switch (role) {
     case "student": {
       if (currentUserId) {
         const student = await prisma.student.findUnique({
           where: { id: currentUserId },
         });
-        if (student) {
-          lessonWhere.classId = student.classId;
-        }
+        if (student) lessonWhere.classId = student.classId;
       }
       break;
     }
-
     case "parent": {
       if (currentUserId) {
         const parent = await prisma.parent.findUnique({
           where: { id: currentUserId },
           include: { students: true },
         });
-        if (parent && parent.students.length > 0) {
-          lessonWhere.classId = {
-            in: parent.students.map((s) => s.classId),
-          };
+        if (parent?.students.length) {
+          lessonWhere.classId = { in: parent.students.map((s) => s.classId) };
         }
       }
       break;
     }
-
-    // case "teacher": no extra restriction → same as admin
-    // default (admin/unknown): no extra restriction
   }
 
-  const hasLessonConditions = Object.keys(lessonWhere).length > 0;
-
-  if (!hasLessonConditions) {
-    return {}; // no filters => all assignments
-  }
-
-  return {
-    lesson: {
-      is: lessonWhere,
-    },
-  };
+  return Object.keys(lessonWhere).length > 0
+    ? { lesson: { is: lessonWhere } }
+    : {};
 }
 
 const AssignmentListPage = async ({
@@ -93,6 +76,12 @@ const AssignmentListPage = async ({
 }: {
   searchParams: { [key: string]: string | undefined };
 }) => {
+  // ✅ Lazy-load server-only modules
+  const [{ default: prisma }, { auth }] = await Promise.all([
+    import("@/lib/prisma"),
+    import("@clerk/nextjs/server"),
+  ]);
+
   const { userId, sessionClaims } = await auth();
   const role = (sessionClaims?.metadata as { role?: string })?.role;
   const currentUserId = userId;
@@ -100,7 +89,7 @@ const AssignmentListPage = async ({
   const { page, ...queryParams } = searchParams;
   const p = page ? parseInt(page) : 1;
 
-  const query = await buildAssignmentQuery(role, currentUserId, queryParams);
+  const query = await buildAssignmentQuery(role, currentUserId, queryParams, prisma);
 
   const [data, count] = await prisma.$transaction([
     prisma.assignment.findMany({
@@ -123,19 +112,9 @@ const AssignmentListPage = async ({
   const columns = [
     { header: "Subject Name", accessor: "name" },
     { header: "Class", accessor: "class" },
-    {
-      header: "Teacher",
-      accessor: "teacher",
-      className: "hidden md:table-cell",
-    },
-    {
-      header: "Due Date",
-      accessor: "dueDate",
-      className: "hidden md:table-cell",
-    },
-    ...(role === "admin" || role === "teacher"
-      ? [{ header: "Actions", accessor: "action" }]
-      : []),
+    { header: "Teacher", accessor: "teacher", className: "hidden md:table-cell" },
+    { header: "Due Date", accessor: "dueDate", className: "hidden md:table-cell" },
+    ...(role === "admin" || role === "teacher" ? [{ header: "Actions", accessor: "action" }] : []),
   ];
 
   const renderRow = (item: AssignmentList) => (
@@ -143,9 +122,7 @@ const AssignmentListPage = async ({
       key={item.id}
       className="border-b border-gray-200 even:bg-slate-50 text-sm hover:bg-lamaPurpleLight"
     >
-      <td className="flex items-center gap-4 p-4">
-        {item.lesson.subject.name}
-      </td>
+      <td className="flex items-center gap-4 p-4">{item.lesson.subject.name}</td>
       <td>{item.lesson.class.name}</td>
       <td className="hidden md:table-cell">
         {item.lesson.teacher.name + " " + item.lesson.teacher.surname}
@@ -168,11 +145,8 @@ const AssignmentListPage = async ({
 
   return (
     <div className="bg-white p-4 rounded-md flex-1 m-4 mt-0">
-      {/* TOP */}
       <div className="flex items-center justify-between">
-        <h1 className="hidden md:block text-lg font-semibold">
-          All Assignments
-        </h1>
+        <h1 className="hidden md:block text-lg font-semibold">All Assignments</h1>
         <div className="flex flex-col md:flex-row items-center gap-4 w-full md:w-auto">
           <TableSearch />
           <div className="flex items-center gap-4 self-end">
@@ -183,10 +157,8 @@ const AssignmentListPage = async ({
         </div>
       </div>
 
-      {/* LIST */}
       <Table columns={columns} renderRow={renderRow} data={data} />
 
-      {/* PAGINATION */}
       <Pagination page={p} count={count} />
     </div>
   );
