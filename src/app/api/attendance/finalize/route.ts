@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { auth } from "@clerk/nextjs/server";
+
 
 interface FinalizeRequestBody {
   lessonId?: number | string;
@@ -8,6 +8,7 @@ interface FinalizeRequestBody {
 // POST /api/attendance/finalize
 export async function POST(req: Request) {
   try {
+  const { auth } = await import("@clerk/nextjs/server");
     const { userId, sessionClaims } = await auth();
     const role = (sessionClaims?.metadata as { role?: string })?.role;
 

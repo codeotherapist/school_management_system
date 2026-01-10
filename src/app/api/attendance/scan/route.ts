@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { auth } from "@clerk/nextjs/server";
+
 
 // Normalize date to midnight (00:00:00)
 function normalizeDate(date: Date) {
@@ -18,6 +18,7 @@ function dayRange(date: Date) {
 
 export async function POST(req: Request) {
   try {
+    const { auth } = await import("@clerk/nextjs/server");
     const { userId, sessionClaims } = await auth();
     const role = (sessionClaims?.metadata as { role?: string })?.role;
 

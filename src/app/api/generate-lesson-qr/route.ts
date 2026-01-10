@@ -1,11 +1,12 @@
 import { NextResponse } from "next/server";
-import { auth } from "@clerk/nextjs/server";
 import { signLessonQr } from "@/lib/qr";
 import type { LessonQrPayload } from "@/lib/qr";
 import { v4 as uuidv4 } from "uuid";
 
 export async function POST(req: Request) {
   try {
+
+  const { auth } = await import("@clerk/nextjs/server");
     const { userId, sessionClaims } = await auth();
     const role = (sessionClaims?.metadata as { role?: string })?.role;
 
