@@ -1,29 +1,12 @@
-import prisma from "@/lib/prisma";
+// src/components/UserCard.tsx
 import Image from "next/image";
 
-const UserCard = async ({
-  type,
-}: {
+type UserCardProps = {
   type: "admin" | "teacher" | "student" | "parent";
-}) => {
-  let count = 0;
+  count: number; // ✅ pass count from parent
+};
 
-  // Soft delete handling for teacher & student
-  if (type === "teacher") {
-    count = await prisma.teacher.count({ where: { isDeleted: false } });
-  } else if (type === "student") {
-    count = await prisma.student.count({ where: { isDeleted: false } });
-  } else {
-    // Admin & Parent
-    const modelMap = {
-      admin: prisma.admin,
-      parent: prisma.parent,
-    } as const;
-
-    // ✅ Cast to any to bypass TypeScript union issue
-    count = await (modelMap[type] as any).count();
-  }
-
+const UserCard = ({ type, count }: UserCardProps) => {
   return (
     <div className="rounded-2xl odd:bg-lamaPurple even:bg-lamaYellow p-4 flex-1 min-w-[130px]">
       <div className="flex justify-between items-center">

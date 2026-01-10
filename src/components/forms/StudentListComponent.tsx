@@ -4,17 +4,17 @@ import Pagination from "@/components/Pagination";
 import Table from "@/components/Table";
 import TableSearch from "@/components/TableSearch";
 
-import prisma from "@/lib/prisma";
 import { ITEM_PER_PAGE } from "@/lib/settings";
 import { Class, Prisma, Student } from "@prisma/client";
 import Image from "next/image";
 import Link from "next/link";
 
-import { auth } from "@clerk/nextjs/server";
+
 
 type StudentList = Student & { class: Class | null };
 
 type Props = {
+  
   searchParams?: { [key: string]: string | undefined };
   classId?: string | number | null;
 };
@@ -23,6 +23,9 @@ type Props = {
 const defaultAvatar = "/avatar.png";
 
 const StudentListComponent = async ({ searchParams = {}, classId }: Props) => {
+    // 🔹 Lazy-load server-only modules
+  const { default: prisma } = await import("@/lib/prisma");
+  const { auth } = await import("@clerk/nextjs/server");
   const { sessionClaims, userId } = await auth();
   const role = (sessionClaims?.metadata as { role?: string })?.role;
 
