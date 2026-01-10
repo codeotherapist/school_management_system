@@ -1,7 +1,8 @@
-import prisma from "@/lib/prisma";
-import { auth } from "@clerk/nextjs/server";
+
 
 const Announcements = async () => {
+    const { default: prisma } = await import("@/lib/prisma");
+  const { auth } = await import("@clerk/nextjs/server");
   const { userId, sessionClaims } = await auth();
   const role = (sessionClaims?.metadata as { role?: string })?.role;
 
@@ -10,6 +11,7 @@ const Announcements = async () => {
 
   if (role === "student") {
     studentRecord = await prisma.student.findUnique({
+      
       where: { id: userId! }, // ✅ fixed
       select: { id: true },
     });

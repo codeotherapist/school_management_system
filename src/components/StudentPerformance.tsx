@@ -1,4 +1,4 @@
-import prisma from "@/lib/prisma";
+
 import Performance from "@/components/Performance";
 
 type Props = {
@@ -6,6 +6,7 @@ type Props = {
 };
 
 const StudentPerformance = async ({ studentId }: Props) => {
+    const { default: prisma } = await import("@/lib/prisma");
   const results = await prisma.result.findMany({
     where: {
       studentId,
