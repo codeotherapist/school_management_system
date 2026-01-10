@@ -1,13 +1,13 @@
 "use client";
 
-import { useForm } from "react-hook-form";
+import { useForm, SubmitHandler } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import {
   announcementSchema,
   AnnouncementSchema,
 } from "@/lib/formValidationSchemas";
 import { createAnnouncement, updateAnnouncement } from "@/lib/actions";
-import { toast } from "react-toastify"; 
+import { toast } from "react-toastify";
 
 type Props = {
   type: "create" | "update";
@@ -16,27 +16,51 @@ type Props = {
   relatedData?: any;
 };
 
-const AnnouncementForm = ({ type, data, setOpen, relatedData }: Props) => {
+// ✅ Fix: Create a Form type that makes classId optional
+type AnnouncementFormType = Omit<AnnouncementSchema, "classId"> & {
+  classId?: string | number | null;
+};
+
+const AnnouncementForm = ({ type, data, setOpen }: Props) => {
   const {
     register,
     handleSubmit,
     formState: { errors, isSubmitting },
-  } = useForm<AnnouncementSchema>({
+  } = useForm<AnnouncementFormType>({
     resolver: zodResolver(announcementSchema),
-    defaultValues: data,
+    defaultValues: {
+      title: data?.title || "",
+      description: data?.description || "",
+      date: data?.date || "",
+      classId:
+        data?.classId === undefined
+          ? undefined
+          : typeof data.classId === "number"
+          ? data.classId
+          : Number(data.classId),
+      id: data?.id,
+    },
   });
 
-  const onSubmit = async (formData: AnnouncementSchema) => {
-    const action =
-      type === "create" ? createAnnouncement : updateAnnouncement;
+  const onSubmit: SubmitHandler<AnnouncementFormType> = async (formData) => {
+    // Normalize classId to number | null before sending
+    const payload: AnnouncementSchema = {
+      ...formData,
+      classId:
+        formData.classId === undefined || formData.classId === ""
+          ? null
+          : Number(formData.classId),
+    };
 
-    const result = await action(formData);
+    const action = type === "create" ? createAnnouncement : updateAnnouncement;
+
+    const result = await action(payload);
 
     if (result.success) {
       toast.success(
         type === "create"
-          ? "Announcement has been created "
-          : "Announcement has been updated "
+          ? "Announcement has been created!"
+          : "Announcement has been updated!"
       );
       setOpen(false);
     } else {
@@ -77,6 +101,8 @@ const AnnouncementForm = ({ type, data, setOpen, relatedData }: Props) => {
         {...register("classId")}
         className="border p-2 rounded"
       />
+
+      {errors.classId && <p className="text-red-500">{errors.classId.message}</p>}
 
       <button
         type="submit"

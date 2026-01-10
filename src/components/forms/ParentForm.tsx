@@ -9,18 +9,6 @@ import { useRouter } from "next/navigation";
 import { createParent, updateParent } from "@/lib/actions";
 import { z } from "zod";
 
-// ---------- ZOD SCHEMA ----------
-export const parentSchema = z.object({
-  username: z.string().min(1, "Required"),
-  name: z.string().min(1, "Required"),
-  surname: z.string().min(1, "Required"),
-  email: z.string().email("Invalid Email").optional().nullable(),
-  phone: z.string().min(5, "Required"),
-  address: z.string().min(1, "Required"),
-});
-
-export type ParentSchema = z.infer<typeof parentSchema>;
-
 // ---------- PROPS TYPE ----------
 type ParentFormProps = {
   type: "create" | "update";
@@ -28,47 +16,73 @@ type ParentFormProps = {
   setOpen: Dispatch<SetStateAction<boolean>>;
 };
 
-// -------------------------------------------------
-
+// ---------- COMPONENT ----------
 const ParentForm = ({ type, data, setOpen }: ParentFormProps) => {
-  const {
-    register,
-    handleSubmit,
-    formState: { errors },
-  } = useForm<ParentSchema>({
-    resolver: zodResolver(parentSchema),
-    defaultValues: {
-      username: data?.username || "",
-      name: data?.name || "",
-      surname: data?.surname || "",
-      email: data?.email || "",
-      phone: data?.phone || "",
-      address: data?.address || "",
-    },
-  });
-
   const router = useRouter();
 
-  const onSubmit = handleSubmit(async (formData) => {
-    const payload =
-      type === "create"
-        ? formData
-        : { ...formData, id: data?.id };
+  // ---------- INLINE ZOD SCHEMA ----------
+  const schema = z.object({
+    username: z.string().min(1, { message: "Username is required!" }),
+    name: z.string().min(1, { message: "First name is required!" }),
+    surname: z.string().min(1, { message: "Last name is required!" }),
+    email: z.string().email({ message: "Invalid email!" }).optional().nullable(),
+    phone: z.string().min(5, { message: "Phone is required!" }),
+    address: z.string().min(1, { message: "Address is required!" }),
+  });
 
-    const action = type === "create" ? createParent : updateParent;
-    const result = await action({ success: false, error: false }, payload);
+  type FormValues = z.infer<typeof schema>;
+
+  const { register, handleSubmit, formState: { errors } } = useForm<FormValues>({
+    resolver: zodResolver(schema),
+    defaultValues: data
+      ? {
+          username: data.username,
+          name: data.name,
+          surname: data.surname,
+          email: data.email,
+          phone: data.phone,
+          address: data.address,
+        }
+      : undefined,
+  });
+
+  // ---------- SUBMIT ----------
+ const onSubmit = async (formData: FormValues) => {
+  if (type === "update") {
+    if (!data?.id) {
+      toast.error("ID is required for update!");
+      return;
+    }
+
+    // Convert ID to string to match action's type
+    const payload = { ...formData, id: String(data.id) };
+
+    const result = await updateParent({ success: false, error: false }, payload);
 
     if (result.success) {
-      toast(`Parent has been ${type === "create" ? "created" : "updated"}!`);
+      toast("Parent updated successfully!");
       setOpen(false);
       router.refresh();
     } else {
       toast.error("Something went wrong!");
     }
-  });
+  } else {
+    // For create, no ID needed
+    const payload = formData;
+    const result = await createParent({ success: false, error: false }, payload);
+
+    if (result.success) {
+      toast("Parent created successfully!");
+      setOpen(false);
+      router.refresh();
+    } else {
+      toast.error("Something went wrong!");
+    }
+  }
+};
 
   return (
-    <form className="flex flex-col gap-8" onSubmit={onSubmit}>
+    <form className="flex flex-col gap-8" onSubmit={handleSubmit(onSubmit)}>
       <h1 className="text-xl font-semibold">
         {type === "create" ? "Create a new Parent" : "Update Parent"}
       </h1>
@@ -125,12 +139,12 @@ const ParentForm = ({ type, data, setOpen }: ParentFormProps) => {
         />
       </div>
 
-      {data && (
+      {type === "update" && data?.id && (
         <InputField
           label="Id"
           name="id"
           register={register}
-          defaultValue={data?.id}
+          defaultValue={data.id}
           hidden
         />
       )}

@@ -105,27 +105,43 @@ export type Day = z.infer<typeof DayEnum>;
 export const DAYS = [...DAY_VALUES];
 
 
+
 export const lessonSchema = z
   .object({
     id: z.coerce.number().optional(),
+
     name: z.string().min(1, { message: "Lesson name is required!" }),
+
     day: DayEnum,
-    startTime: z.coerce.date({ message: "Start time is required!" }),
-    endTime: z.coerce.date({ message: "End time is required!" }),
-    subjectId: z.coerce.number().min(1, { message: "Subject is required!" }),
-    classId: z.coerce.number().min(1, { message: "Class is required!" }),
+
+    startTime: z.coerce.date(),
+    endTime: z.coerce.date(),
+
+    subjectId: z.coerce
+      .number()
+      .positive({ message: "Subject is required!" }),
+
+    classId: z.coerce
+      .number()
+      .positive({ message: "Class is required!" }),
+
     teacherId: z.string().min(1, { message: "Teacher is required!" }),
   })
+
   // ⏱ End must be after start
-  .refine((d) => d.endTime > d.startTime, {
+  .refine((d) => d.endTime.getTime() > d.startTime.getTime(), {
     message: "End time must be after start time",
     path: ["endTime"],
   })
+
   // 🚫 NO LESSON AFTER 4:00 PM
   .refine(
     (d) => {
       const end = d.endTime;
-      return end.getHours() < 16 || (end.getHours() === 16 && end.getMinutes() === 0);
+      return (
+        end.getHours() < 16 ||
+        (end.getHours() === 16 && end.getMinutes() === 0)
+      );
     },
     {
       message: "Lessons cannot end after 4:00 PM",
@@ -136,20 +152,34 @@ export const lessonSchema = z
 export type LessonSchema = z.infer<typeof lessonSchema>;
 
 
+
 export const assignmentSchema = z
   .object({
-    title: z.string().min(1, { message: "Title is required" }),
-    startDate: z.coerce.date(),
-    dueDate: z.coerce.date(),
-    lessonId: z.coerce.number().int({ message: "Lesson is required" }),
-    id: z.number().optional(),
+    id: z.coerce.number().optional(),
+
+    title: z.string().min(1, {
+      message: "Title is required",
+    }),
+
+    startDate: z.coerce.date({
+      message: "Start date is required",
+    }),
+
+    dueDate: z.coerce.date({
+      message: "Due date is required",
+    }),
+
+    lessonId: z.coerce.number().min(1, {
+      message: "Lesson is required",
+    }),
   })
+  // ✅ dueDate must be after startDate
   .refine((data) => data.dueDate > data.startDate, {
-    path: ["dueDate"],
     message: "Due date must be after start date",
+    path: ["dueDate"],
   });
 
-export type AssignmentSchema = z.infer<typeof assignmentSchema>;
+export type AssignmentSchema = z.output<typeof assignmentSchema>;
 
 
 

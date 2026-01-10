@@ -1,68 +1,73 @@
 "use client";
 
 import { zodResolver } from "@hookform/resolvers/zod";
-import { useForm } from "react-hook-form";
+import { useForm, SubmitHandler } from "react-hook-form";
 import InputField from "../InputField";
-import { subjectSchema, SubjectSchema } from "@/lib/formValidationSchemas";
 import { createSubject, updateSubject } from "@/lib/actions";
-import { useFormState } from "react-dom";
 import { Dispatch, SetStateAction, useEffect } from "react";
 import { toast } from "react-toastify";
 import { useRouter } from "next/navigation";
+import { z } from "zod"; // ✅ Correct Zod import
 
-const SubjectForm = ({
-  type,
-  data,
-  setOpen,
-  relatedData,
-}: {
+// ---------- Inline Zod Schema ----------
+const subjectSchema = z.object({
+  id: z.string().optional(),
+  name: z.string().min(1, { message: "Subject name is required!" }),
+  teachers: z.array(z.string()).optional(),
+});
+
+type SubjectSchema = z.infer<typeof subjectSchema>;
+
+// ---------------- Props -----------------
+type SubjectFormProps = {
   type: "create" | "update";
   data?: any;
   setOpen: Dispatch<SetStateAction<boolean>>;
   relatedData?: any;
-}) => {
-  const {
-    register,
-    handleSubmit,
-    formState: { errors },
-  } = useForm<SubjectSchema>({
-    resolver: zodResolver(subjectSchema),
-  });
+};
 
-
-  const [state, formAction] = useFormState(
-    type === "create" ? createSubject : updateSubject,
-    {
-      success: false,
-      error: false,
-    }
-  );
-
-  const onSubmit = handleSubmit((data) => {
-    console.log(data);
-    formAction(data);
-  });
-
+// ---------------- Form -----------------
+const SubjectForm = ({ type, data, setOpen, relatedData }: SubjectFormProps) => {
   const router = useRouter();
 
+  const { register, handleSubmit, formState: { errors }, setValue } = useForm<SubjectSchema>({
+    resolver: zodResolver(subjectSchema),
+    defaultValues: {
+      id: data?.id,
+      name: data?.name || "",
+      teachers: data?.teachers || [],
+    },
+  });
+
+  const { teachers = [] } = relatedData ?? {};
+
+  // ---------- Submit ----------
+ // ---------- Submit ----------
+const onSubmit: SubmitHandler<SubjectSchema> = async (formData) => {
+  const payload = {
+    ...formData,
+    teachers: formData.teachers || [], // ✅ ensure it's always an array
+    id: data?.id ? Number(data.id) : undefined, // optional id
+  };
+
+  const action = type === "create" ? createSubject : updateSubject;
+  const result = await action({ success: false, error: false }, payload);
+
+  if (result.success) {
+    toast(`Subject has been ${type === "create" ? "created" : "updated"}!`);
+    setOpen(false);
+    router.refresh();
+  } else {
+    toast.error("Something went wrong!");
+  }
+};
+
   useEffect(() => {
-    if (state.success) {
-      toast(`Subject has been ${type === "create" ? "created" : "updated"}!`);
-      setOpen(false);
-      router.refresh();
-    }
-  }, [state, router, type, setOpen]);
-   useEffect(() => {
     console.log("SubjectForm relatedData:", relatedData);
   }, [relatedData]);
 
-
-
- const { teachers = [] } = relatedData ?? {};
-
-
   return (
-    <form className="flex flex-col gap-8" onSubmit={onSubmit}>
+    <form className="flex flex-col gap-8" onSubmit={handleSubmit(onSubmit)}>
       <h1 className="text-xl font-semibold">
         {type === "create" ? "Create a new subject" : "Update the subject"}
       </h1>
@@ -71,7 +76,6 @@ const SubjectForm = ({
         <InputField
           label="Subject name"
           name="name"
-          defaultValue={data?.name}
           register={register}
           error={errors?.name}
         />
@@ -79,38 +83,32 @@ const SubjectForm = ({
           <InputField
             label="Id"
             name="id"
-            defaultValue={data?.id}
             register={register}
-            error={errors?.id}
+            defaultValue={data?.id}
             hidden
           />
         )}
+
         <div className="flex flex-col gap-2 w-full md:w-1/4">
           <label className="text-xs text-gray-500">Teachers</label>
           <select
             multiple
             className="ring-[1.5px] ring-gray-300 p-2 rounded-md text-sm w-full"
             {...register("teachers")}
-            defaultValue={data?.teachers}
+            defaultValue={data?.teachers || []}
           >
-            {teachers.map(
-              (teacher: { id: string; name: string; surname: string }) => (
-                <option value={teacher.id} key={teacher.id}>
-                  {teacher.name + " " + teacher.surname}
-                </option>
-              )
-            )}
+            {teachers.map((teacher: { id: string; name: string; surname: string }) => (
+              <option key={teacher.id} value={teacher.id}>
+                {teacher.name} {teacher.surname}
+              </option>
+            ))}
           </select>
           {errors.teachers?.message && (
-            <p className="text-xs text-red-400">
-              {errors.teachers.message.toString()}
-            </p>
+            <p className="text-xs text-red-400">{errors.teachers.message.toString()}</p>
           )}
         </div>
       </div>
-      {state.error && (
-        <span className="text-red-500">Something went wrong!</span>
-      )}
+
       <button className="bg-blue-400 text-white p-2 rounded-md">
         {type === "create" ? "Create" : "Update"}
       </button>

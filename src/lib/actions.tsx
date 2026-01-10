@@ -536,50 +536,52 @@ export async function deleteParent(prevState: any, formData: FormData) {
 
 ////////////////////////////////////// Exam /////////////////////////////////////////
 
-export const createExam = async (
-  currentState: CurrentState,
-  data: ExamSchema
-) => {
+
+export const createExam = async (data: {
+  title: string;
+  startTime: Date;
+  endTime: Date;
+  lessonId: number;
+  id?: number;
+}) => {
   try {
-    await prisma.exam.create({
-      data: {
-        title: data.title,
-        startTime: new Date(data.startTime),
-        endTime: new Date(data.endTime),
-        lessonId: Number(data.lessonId),
-      },
+    const res = await fetch("/api/exams", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(data),
     });
 
-    return { success: true, error: false };
-  } catch (err) {
-    console.log(err);
-    return { success: false, error: true };
+    if (!res.ok) throw new Error("Failed to create exam");
+
+    return { success: true };
+  } catch (error) {
+    console.error(error);
+    return { success: false };
   }
 };
 
-
-export const updateExam = async (
-  currentState: CurrentState,
-  data: ExamSchema
-) => {
+export const updateExam = async (data: {
+  title: string;
+  startTime: Date;
+  endTime: Date;
+  lessonId: number;
+  id: number;
+}) => {
   try {
-    await prisma.exam.update({
-      where: { id: Number(data.id) },
-      data: {
-        title: data.title,
-        startTime: new Date(data.startTime),
-        endTime: new Date(data.endTime),
-        lessonId: Number(data.lessonId),
-      },
+    const res = await fetch(`/api/exams/${data.id}`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(data),
     });
 
-    return { success: true, error: false };
-  } catch (err) {
-    console.log(err);
-    return { success: false, error: true };
+    if (!res.ok) throw new Error("Failed to update exam");
+
+    return { success: true };
+  } catch (error) {
+    console.error(error);
+    return { success: false };
   }
 };
-
 
 export const deleteExam = async (
   currentState: CurrentState,

@@ -1,5 +1,6 @@
 "use client";
 
+import { z } from "zod";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { LessonSchema, lessonSchema } from "@/lib/formValidationSchemas";
@@ -9,41 +10,62 @@ import { toast } from "react-toastify";
 
 type Props = {
   type: "create" | "update";
-  data?: LessonSchema & { id: number }; // ensure id is available on update
+  data?: LessonSchema & { id: number };
   setOpen: (open: boolean) => void;
   relatedData: {
     subjects: { id: number; name: string }[];
     classes: { id: number; name: string }[];
-    teachers: { id: number; name: string; surname: string }[];
+    teachers: { id: string; name: string; surname: string }[];
   };
 };
 
-export default function LessonForm({ type, data, setOpen, relatedData }: Props) {
+export default function LessonForm({
+  type,
+  data,
+  setOpen,
+  relatedData,
+}: Props) {
   const router = useRouter();
 
   const {
     register,
     handleSubmit,
-    formState: { errors },
-  } = useForm<LessonSchema>({
+    formState: { errors, isSubmitting },
+  } = useForm<z.input<typeof lessonSchema>>({
     resolver: zodResolver(lessonSchema),
-    defaultValues: data || {},
+    defaultValues: data
+      ? {
+          ...data,
+          startTime: new Date(data.startTime)
+            .toISOString()
+            .slice(0, 16),
+          endTime: new Date(data.endTime)
+            .toISOString()
+            .slice(0, 16),
+        }
+      : undefined,
   });
 
-  const onSubmit = async (formData: LessonSchema) => {
+  const onSubmit = async (
+    formData: z.input<typeof lessonSchema>
+  ) => {
     try {
+      // ✅ INPUT → OUTPUT (Date, number)
+      const parsedData = lessonSchema.parse(formData);
+
       if (type === "create") {
-        await createLesson(formData);
+        await createLesson(parsedData);
         toast.success("Lesson created successfully!");
       } else {
-        if (!data?.id) throw new Error("Lesson ID missing for update");
-        await updateLesson(data.id, formData); // ✅ FIXED
+        if (!data?.id) throw new Error("Lesson ID missing");
+        await updateLesson(data.id, parsedData);
         toast.success("Lesson updated successfully!");
       }
+
       setOpen(false);
       router.refresh();
-    } catch (err) {
-      console.error(err);
+    } catch (error) {
+      console.error(error);
       toast.error("Something went wrong!");
     }
   };
@@ -70,7 +92,7 @@ export default function LessonForm({ type, data, setOpen, relatedData }: Props) 
       <div>
         <label className="block font-medium">Day</label>
         <select {...register("day")} className="w-full border rounded-md p-2">
-          <option value="">Select a day</option>
+          <option value="">Select day</option>
           <option value="MONDAY">Monday</option>
           <option value="TUESDAY">Tuesday</option>
           <option value="WEDNESDAY">Wednesday</option>
@@ -82,51 +104,54 @@ export default function LessonForm({ type, data, setOpen, relatedData }: Props) 
         )}
       </div>
 
-    {/* Start Time */}
-<div>
-  <label className="block font-medium">Start Time</label>
-  <input
-    type="datetime-local"
-    {...register("startTime")}
-    max="2099-12-31T16:00"   // ✅ BLOCK AFTER 4 PM
-    className="w-full border rounded-md p-2"
-  />
-  {errors.startTime && (
-    <p className="text-red-500 text-sm">{errors.startTime.message}</p>
-  )}
-</div>
+      {/* Start Time */}
+      <div>
+        <label className="block font-medium">Start Time</label>
+        <input
+          type="datetime-local"
+          {...register("startTime")}
+          className="w-full border rounded-md p-2"
+        />
+        {errors.startTime && (
+          <p className="text-red-500 text-sm">
+            {errors.startTime.message}
+          </p>
+        )}
+      </div>
 
-{/* End Time */}
-<div>
-  <label className="block font-medium">End Time</label>
-  <input
-    type="datetime-local"
-    {...register("endTime")}
-    max="2099-12-31T16:00"   // ✅ BLOCK AFTER 4 PM
-    className="w-full border rounded-md p-2"
-  />
-  {errors.endTime && (
-    <p className="text-red-500 text-sm">{errors.endTime.message}</p>
-  )}
-</div>
-
+      {/* End Time */}
+      <div>
+        <label className="block font-medium">End Time</label>
+        <input
+          type="datetime-local"
+          {...register("endTime")}
+          className="w-full border rounded-md p-2"
+        />
+        {errors.endTime && (
+          <p className="text-red-500 text-sm">
+            {errors.endTime.message}
+          </p>
+        )}
+      </div>
 
       {/* Subject */}
       <div>
         <label className="block font-medium">Subject</label>
         <select
-          {...register("subjectId")}
+          {...register("subjectId", { valueAsNumber: true })}
           className="w-full border rounded-md p-2"
         >
           <option value="">Select subject</option>
-          {relatedData.subjects?.map((s) => (
+          {relatedData.subjects.map((s) => (
             <option key={s.id} value={s.id}>
               {s.name}
             </option>
           ))}
         </select>
         {errors.subjectId && (
-          <p className="text-red-500 text-sm">{errors.subjectId.message}</p>
+          <p className="text-red-500 text-sm">
+            {errors.subjectId.message}
+          </p>
         )}
       </div>
 
@@ -134,18 +159,20 @@ export default function LessonForm({ type, data, setOpen, relatedData }: Props) 
       <div>
         <label className="block font-medium">Class</label>
         <select
-          {...register("classId")}
+          {...register("classId", { valueAsNumber: true })}
           className="w-full border rounded-md p-2"
         >
           <option value="">Select class</option>
-          {relatedData.classes?.map((c) => (
+          {relatedData.classes.map((c) => (
             <option key={c.id} value={c.id}>
               {c.name}
             </option>
           ))}
         </select>
         {errors.classId && (
-          <p className="text-red-500 text-sm">{errors.classId.message}</p>
+          <p className="text-red-500 text-sm">
+            {errors.classId.message}
+          </p>
         )}
       </div>
 
@@ -157,20 +184,22 @@ export default function LessonForm({ type, data, setOpen, relatedData }: Props) 
           className="w-full border rounded-md p-2"
         >
           <option value="">Select teacher</option>
-          {relatedData.teachers?.map((t) => (
+          {relatedData.teachers.map((t) => (
             <option key={t.id} value={t.id}>
               {t.name} {t.surname}
             </option>
           ))}
         </select>
         {errors.teacherId && (
-          <p className="text-red-500 text-sm">{errors.teacherId.message}</p>
+          <p className="text-red-500 text-sm">
+            {errors.teacherId.message}
+          </p>
         )}
       </div>
 
-      {/* Submit */}
       <button
         type="submit"
+        disabled={isSubmitting}
         className="w-full bg-blue-600 text-white py-2 rounded-md hover:bg-blue-700"
       >
         {type === "create" ? "Create" : "Update"}

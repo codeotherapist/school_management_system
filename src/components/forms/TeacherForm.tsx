@@ -1,219 +1,151 @@
 "use client";
+
 import { zodResolver } from "@hookform/resolvers/zod";
-import { useForm } from "react-hook-form";
+import { useForm, SubmitHandler } from "react-hook-form";
 import InputField from "../InputField";
 import Image from "next/image";
 import { Dispatch, SetStateAction, useEffect, useState } from "react";
-import { teacherSchema, TeacherSchema } from "@/lib/formValidationSchemas";
-import { useFormState } from "react-dom";
 import { createTeacher, updateTeacher } from "@/lib/actions";
 import { useRouter } from "next/navigation";
 import { toast } from "react-toastify";
 import { CldUploadWidget } from "next-cloudinary";
+import { z } from "zod";
 
-const TeacherForm = ({
-  type,
-  data,
-  setOpen,
-  relatedData,
-}: {
+// ---------------- Props -----------------
+type TeacherFormProps = {
   type: "create" | "update";
   data?: any;
   setOpen: Dispatch<SetStateAction<boolean>>;
   relatedData?: any;
-}) => {
-  const {
-    register,
-    handleSubmit,
-    formState: { errors },
-  } = useForm<TeacherSchema>({
-    resolver: zodResolver(teacherSchema),
-  });
+};
 
-  const [img, setImg] = useState<any>();
+// ---------------- Inline Zod Schema -----------------
+const teacherSchema = z.object({
+  id: z.string().optional(),
+  username: z.string().min(1, "Username is required"),
+  email: z.string().email("Invalid email").optional(),
+  password: z.string().min(1, "Password is required").optional(),
+  name: z.string().min(1, "First name is required"),
+  surname: z.string().min(1, "Last name is required"),
+  phone: z.string().min(5, "Phone is required"),
+  address: z.string().min(1, "Address is required"),
+  bloodType: z.string().optional(),
+  birthday: z.string().optional(),
+  sex: z.enum(["MALE", "FEMALE"], "Sex is required"),
+  subjects: z.array(z.string()).optional(),
+});
 
-  const [state, formAction] = useFormState(
-    type === "create" ? createTeacher : updateTeacher,
-    {
-      success: false,
-      error: false,
-    }
-  );
-
-  const onSubmit = handleSubmit((data) => {
-    console.log(data);
-    formAction({...data, img: img?.secure_url});
-  });
-
+// ---------------- Form Component -----------------
+const TeacherForm = ({ type, data, setOpen, relatedData }: TeacherFormProps) => {
   const router = useRouter();
+  const [img, setImg] = useState<any>();
+  const { subjects: subjectsData = [] } = relatedData ?? {};
 
-  useEffect(() => {
-    if (state.success) {
-      toast(`Teacher has been ${type === "create" ? "created" : "updated"}!`);
-      setOpen(false);
-      router.refresh();
-    }
-  }, [state, router, type, setOpen]);
-  useEffect(() => {
-    console.log("SubjectForm relatedData:", relatedData);
-  }, [relatedData]);
+  type FormValues = z.infer<typeof teacherSchema>;
 
-  const { subjects = [] } = relatedData ?? {};
+  const { register, handleSubmit, formState: { errors } } = useForm<FormValues>({
+    resolver: zodResolver(teacherSchema),
+    defaultValues: {
+      id: data?.id?.toString(),
+      username: data?.username || "",
+      email: data?.email || "",
+      password: "",
+      name: data?.name || "",
+      surname: data?.surname || "",
+      phone: data?.phone || "",
+      address: data?.address || "",
+      bloodType: data?.bloodType || "",
+      birthday: data?.birthday ? new Date(data.birthday).toISOString().split("T")[0] : "",
+      sex: data?.sex || "MALE",
+      subjects: data?.subjects?.map((s: number | string) => s.toString()) || [],
+    },
+  });
+
+  const onSubmit: SubmitHandler<FormValues> = async (formData) => {
+  const payload = {
+    username: formData.username,
+    password: formData.password || "", // ensure string
+    name: formData.name,
+    surname: formData.surname,
+    email: formData.email || "",       // ensure string
+    address: formData.address,
+    bloodType: formData.bloodType || "", // ensure string
+    birthday: formData.birthday ? new Date(formData.birthday) : new Date(), // convert to Date
+    sex: formData.sex,
+    phone: formData.phone || "",       // optional but backend expects string
+    subjects: formData.subjects || [], // ensure array
+    id: formData.id?.toString(),       // convert id to string if exists
+    img: img?.secure_url,
+  };
+
+  const action = type === "create" ? createTeacher : updateTeacher;
+  const result = await action({ success: false, error: false }, payload);
+
+  if (result.success) {
+    toast(`Teacher has been ${type === "create" ? "created" : "updated"}!`);
+    setOpen(false);
+    router.refresh();
+  } else {
+    toast.error("Something went wrong!");
+  }
+};
+
 
   return (
-    <form className="flex flex-col gap-8" onSubmit={onSubmit}>
+    <form className="flex flex-col gap-8" onSubmit={handleSubmit(onSubmit)}>
       <h1 className="text-xl font-semibold">
         {type === "create" ? "Create a new teacher" : "Update the teacher"}
       </h1>
-      <span className="text-xs text-gray-400 font-medium">
-        Authentication Information
-      </span>
-      <div className="flex justify-between flex-wrap gap-4">
-        <InputField
-          label="Username"
-          name="username"
-          defaultValue={data?.username}
-          register={register}
-          error={errors?.username}
-        />
-        <InputField
-          label="Email"
-          name="email"
-          type="email"
-          defaultValue={data?.email}
-          register={register}
-          error={errors?.email}
-        />
-        <InputField
-          label="Password"
-          name="password"
-          type="password"
-          defaultValue={data?.password}
-          register={register}
-          error={errors?.password}
-        />
-      </div>
-      <span className="text-xs text-gray-400 font-medium">
-        Personal Information
-      </span>
-      <div className="flex justify-between flex-wrap gap-4">
-        <InputField
-          label="First Name"
-          name="name"
-          defaultValue={data?.name}
-          register={register}
-          error={errors?.name}
-        />
-        <InputField
-          label="Last Name"
-          name="surname"
-          defaultValue={data?.surname}
-          register={register}
-          error={errors?.surname}
-        />
-        <InputField
-          label="Phone"
-          name="phone"
-          defaultValue={data?.phone}
-          register={register}
-          error={errors.phone}
-        />
-        <InputField
-          label="Address"
-          name="address"
-          defaultValue={data?.address}
-          register={register}
-          error={errors.address}
-        />
-        <InputField
-          label="Blood Type"
-          name="bloodType"
-          defaultValue={data?.bloodType}
-          register={register}
-          error={errors.bloodType}
-        />
-        <InputField
-          label="Birthday"
-          name="birthday"
-          defaultValue={data?.birthday.toISOString().split("T") [0]}
-          register={register}
-          error={errors.birthday}
-          type="date"
-        />
-         {data && (
-          <InputField
-            label="Id"
-            name="id"
-            defaultValue={data?.id}
-            register={register}
-            error={errors?.id}
-            hidden
-          />
-        )}
 
-        <div className="flex flex-col gap-2 w-full w-full md:w-1/4">
+      {/* AUTH INFO */}
+      <span className="text-xs text-gray-400 font-medium">Authentication Information</span>
+      <div className="flex justify-between flex-wrap gap-4">
+        <InputField label="Username" name="username" register={register} defaultValue={data?.username} error={errors.username} />
+        <InputField label="Email" name="email" type="email" register={register} defaultValue={data?.email} error={errors.email} />
+        <InputField label="Password" name="password" type="password" register={register} defaultValue="" error={errors.password} />
+      </div>
+
+      {/* PERSONAL INFO */}
+      <span className="text-xs text-gray-400 font-medium">Personal Information</span>
+      <div className="flex justify-between flex-wrap gap-4">
+        <InputField label="First Name" name="name" register={register} defaultValue={data?.name} error={errors.name} />
+        <InputField label="Last Name" name="surname" register={register} defaultValue={data?.surname} error={errors.surname} />
+        <InputField label="Phone" name="phone" register={register} defaultValue={data?.phone} error={errors.phone} />
+        <InputField label="Address" name="address" register={register} defaultValue={data?.address} error={errors.address} />
+        <InputField label="Blood Type" name="bloodType" register={register} defaultValue={data?.bloodType} error={errors.bloodType} />
+        <InputField label="Birthday" name="birthday" register={register} type="date" defaultValue={data?.birthday ? new Date(data.birthday).toISOString().split("T")[0] : ""} error={errors.birthday} />
+        {data && <InputField label="Id" name="id" register={register} defaultValue={data?.id} hidden />}
+        
+        <div className="flex flex-col gap-2 w-full md:w-1/4">
           <label className="text-xs text-gray-500">Sex</label>
-          <select
-            className="ring-[1.5px] ring-gray-300 p-2 rounded-md text-sm w-full"
-            {...register("sex")}
-            defaultValue={data?.sex}
-          >
+          <select {...register("sex")} defaultValue={data?.sex || "MALE"} className="ring-[1.5px] ring-gray-300 p-2 rounded-md text-sm w-full">
             <option value="MALE">Male</option>
             <option value="FEMALE">Female</option>
           </select>
-          {errors.sex?.message && (
-            <p className="text-xs text-red-400">
-              {errors.sex.message.toString()}
-            </p>
-          )}
+          {errors.sex && <p className="text-xs text-red-400">{errors.sex.message}</p>}
         </div>
-        <div className="flex flex-col gap-2 w-full w-full md:w-1/4">
+
+        <div className="flex flex-col gap-2 w-full md:w-1/4">
           <label className="text-xs text-gray-500">Subjects</label>
-          <select
-            multiple
-            className="ring-[1.5px] ring-gray-300 p-2 rounded-md text-sm w-full"
-            {...register("subjects")}
-            defaultValue={data?.subjects?.map((s: number | string) =>
-              s.toString()
-            )} // ensure string values
-          >
-            {relatedData?.subjectsData?.map(
-              (subject: { id: number; name: string }) => (
-                <option value={subject.id.toString()} key={subject.id}>
-                  {subject.name}
-                </option>
-              )
-            )}
+          <select {...register("subjects")} multiple className="ring-[1.5px] ring-gray-300 p-2 rounded-md text-sm w-full" defaultValue={data?.subjects?.map((s: number | string) => s.toString()) || []}>
+            {subjectsData.map((subject: { id: number; name: string }) => (
+              <option key={subject.id} value={subject.id.toString()}>{subject.name}</option>
+            ))}
           </select>
-
-          {errors.subjects?.message && (
-            <p className="text-xs text-red-400">
-              {errors.subjects.message.toString()}
-            </p>
-          )}
+          {errors.subjects && <p className="text-xs text-red-400">{errors.subjects.message}</p>}
         </div>
 
-        <CldUploadWidget uploadPreset="SchoolSync" onSuccess={(result,{widget}) => {
-          setImg(result.info)
-          widget.close()
-        }}>
-          {({ open }) => {
-            return (
-              <div
-                className="text-xs text-gray-500 flex items-center gap-2 cursor-pointer"
-                onClick={() => open()}
-              >
-                <Image src="/upload.png" alt="" width={28} height={28} />
-                <span>Upload a photo</span>
-              </div>
-            );
-          }}
+        <CldUploadWidget uploadPreset="SchoolSync" onSuccess={(result, { widget }) => { setImg(result.info); widget.close(); }}>
+          {({ open }) => (
+            <div className="text-xs text-gray-500 flex items-center gap-2 cursor-pointer" onClick={() => open()}>
+              <Image src="/upload.png" alt="" width={28} height={28} />
+              <span>Upload a photo</span>
+            </div>
+          )}
         </CldUploadWidget>
       </div>
-      {state.error && (
-        <span className="text-red-500">Something went wrong!</span>
-      )}
-      <button className="bg-blue-400 text-white p-2 rounded-md">
+
+      <button type="submit" className="bg-blue-400 text-white p-2 rounded-md">
         {type === "create" ? "Create" : "Update"}
       </button>
     </form>

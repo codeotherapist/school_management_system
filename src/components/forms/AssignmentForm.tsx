@@ -1,138 +1,152 @@
 "use client";
 
+import z from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { useForm, SubmitHandler } from "react-hook-form";
-import InputField from "../InputField";
-import { assignmentSchema, AssignmentSchema } from "@/lib/formValidationSchemas";
+import { useForm } from "react-hook-form";
+import { assignmentSchema } from "@/lib/formValidationSchemas";
 import { createAssignment, updateAssignment } from "@/lib/actions";
 import { Dispatch, SetStateAction } from "react";
 import { toast } from "react-toastify";
 import { useRouter } from "next/navigation";
 
 // 🔹 helper to format Date into datetime-local input format
-const formatDateTimeLocal = (date?: Date | string) => {
+const formatDateTimeLocal = (date?: string | Date | unknown) => {
   if (!date) return "";
-  const d = new Date(date);
+  const d = new Date(date as string | Date);
   return new Date(d.getTime() - d.getTimezoneOffset() * 60000)
     .toISOString()
     .slice(0, 16);
 };
 
-const AssignmentForm = ({
-  type,
-  data,
-  setOpen,
-  relatedData,
-}: {
+type Props = {
   type: "create" | "update";
-  data?: any;
+  data?: z.input<typeof assignmentSchema> & { id?: number };
   setOpen: Dispatch<SetStateAction<boolean>>;
   relatedData?: { lessons: { id: number; name: string }[] };
-}) => {
+};
+
+export default function AssignmentForm({ type, data, setOpen, relatedData }: Props) {
+  const router = useRouter();
+
   const {
     register,
     handleSubmit,
-    formState: { errors },
-  } = useForm<AssignmentSchema>({
+    formState: { errors, isSubmitting },
+  } = useForm<z.input<typeof assignmentSchema>>({
     resolver: zodResolver(assignmentSchema),
-    defaultValues: {
-      id: data?.id,
-      title: data?.title || "",
-      startDate: data?.startDate ? new Date(data.startDate) : undefined,
-      dueDate: data?.dueDate ? new Date(data.dueDate) : undefined,
-      lessonId: data?.lessonId,
-    },
+    defaultValues: data
+      ? {
+          id: data.id as number | undefined,
+          title: data.title,
+          startDate: formatDateTimeLocal(data.startDate),
+          dueDate: formatDateTimeLocal(data.dueDate),
+          lessonId: data.lessonId ?? "",
+        }
+      : undefined,
   });
 
-  const router = useRouter();
+  const onSubmit = async (formData: z.input<typeof assignmentSchema>) => {
+    try {
+      // Coerce types for API
+      const payload = {
+        ...formData,
+        startDate: new Date(formData.startDate as string),
+        dueDate: new Date(formData.dueDate as string),
+        lessonId: Number(formData.lessonId),
+        id: formData.id ? Number(formData.id) : undefined,
+      };
 
-  // ✅ properly typed submit handler
-  const onSubmit: SubmitHandler<AssignmentSchema> = async (formData) => {
-    const action = type === "create" ? createAssignment : updateAssignment;
-    const result = await action(formData);
+      if (type === "create") {
+        await createAssignment(payload);
+        toast.success("Assignment created successfully!");
+      } else {
+        if (!payload.id) throw new Error("Assignment ID missing");
+        // Pass only one argument, payload includes the id
+        await updateAssignment(payload);
+        toast.success("Assignment updated successfully!");
+      }
 
-    if (result.success) {
-      toast(`Assignment ${type === "create" ? "created" : "updated"}!`);
       setOpen(false);
       router.refresh();
-    } else {
+    } catch (err) {
+      console.error(err);
       toast.error("Something went wrong!");
     }
   };
 
-  const { lessons = [] } = relatedData || {};
+  const lessons = relatedData?.lessons || [];
 
   return (
-    <form className="flex flex-col gap-8" onSubmit={handleSubmit(onSubmit)}>
+    <form
+      onSubmit={handleSubmit(onSubmit)}
+      className="flex flex-col gap-6 p-4 rounded-xl shadow-md bg-white"
+    >
       <h1 className="text-xl font-semibold">
         {type === "create" ? "Create Assignment" : "Update Assignment"}
       </h1>
 
-      <div className="flex justify-between flex-wrap gap-4">
-        <InputField
-          label="Assignment Title"
-          name="title"
-          defaultValue={data?.title}
-          register={register}
-          error={errors?.title}
+      {/* Title */}
+      <div>
+        <label className="block text-sm font-medium">Title</label>
+        <input
+          type="text"
+          {...register("title")}
+          className="w-full border rounded-md p-2"
         />
-
-        <InputField
-          label="Start Date"
-          name="startDate"
-          type="datetime-local"
-          defaultValue={formatDateTimeLocal(data?.startDate)}
-          register={register}
-          error={errors?.startDate}
-        />
-
-        <InputField
-          label="Due Date"
-          name="dueDate"
-          type="datetime-local"
-          defaultValue={formatDateTimeLocal(data?.dueDate)}
-          register={register}
-          error={errors?.dueDate}
-        />
-
-        {data && (
-          <InputField
-            label="Id"
-            name="id"
-            defaultValue={data?.id}
-            register={register}
-            error={errors?.id}
-            hidden
-          />
-        )}
-
-        <div className="flex flex-col gap-2 w-full md:w-1/4">
-          <label className="text-xs text-gray-500">Lesson</label>
-          <select
-            className="ring-[1.5px] ring-gray-300 p-2 rounded-md text-sm w-full"
-            {...register("lessonId")}
-            defaultValue={data?.lessonId}
-          >
-            <option value="">Select a lesson</option>
-            {lessons.map((lesson) => (
-              <option value={lesson.id} key={lesson.id}>
-                {lesson.name}
-              </option>
-            ))}
-          </select>
-          {errors.lessonId?.message && (
-            <p className="text-xs text-red-400">
-              {errors.lessonId.message.toString()}
-            </p>
-          )}
-        </div>
+        {errors.title && <p className="text-red-500 text-sm">{errors.title.message}</p>}
       </div>
 
-      <button className="bg-blue-400 text-white p-2 rounded-md">
+      {/* Start Date */}
+      <div>
+        <label className="block text-sm font-medium">Start Date</label>
+        <input
+          type="datetime-local"
+          {...register("startDate")}
+          className="w-full border rounded-md p-2"
+        />
+        {errors.startDate && <p className="text-red-500 text-sm">{errors.startDate.message}</p>}
+      </div>
+
+      {/* Due Date */}
+      <div>
+        <label className="block text-sm font-medium">Due Date</label>
+        <input
+          type="datetime-local"
+          {...register("dueDate")}
+          className="w-full border rounded-md p-2"
+        />
+        {errors.dueDate && <p className="text-red-500 text-sm">{errors.dueDate.message}</p>}
+      </div>
+
+      {/* Lesson Select */}
+      <div>
+        <label className="block text-sm font-medium">Lesson</label>
+     <select
+  className="ring-[1.5px] ring-gray-300 p-2 rounded-md text-sm w-full"
+  {...register("lessonId")}
+  defaultValue={data?.lessonId as number | ""} // cast to number or fallback ""
+>
+  <option value="">Select a lesson</option>
+  {lessons.map((lesson) => (
+    <option key={lesson.id} value={lesson.id}>
+      {lesson.name}
+    </option>
+  ))}
+</select>
+
+        {errors.lessonId && <p className="text-red-500 text-sm">{errors.lessonId.message}</p>}
+      </div>
+
+      {/* Hidden ID */}
+      {data?.id && <input type="hidden" {...register("id")} value={data.id} />}
+
+      <button
+        type="submit"
+        disabled={isSubmitting}
+        className="w-full bg-blue-600 text-white py-2 rounded-md hover:bg-blue-700"
+      >
         {type === "create" ? "Create" : "Update"}
       </button>
     </form>
   );
-};
-
-export default AssignmentForm;
+}
