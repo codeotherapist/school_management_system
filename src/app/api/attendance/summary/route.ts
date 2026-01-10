@@ -1,15 +1,31 @@
 // app/api/attendance/summary/route.ts
 import { NextResponse } from "next/server";
-import { summarizeAttendanceByDate } from "@/lib/attendance";
 
 export async function GET(req: Request) {
-  const { searchParams } = new URL(req.url);
-  const date = searchParams.get("date");
+  try {
+    const { searchParams } = new URL(req.url);
+    const date = searchParams.get("date");
 
-  if (!date) {
-    return NextResponse.json({ error: "Missing ?date=" }, { status: 400 });
+    if (!date) {
+      return NextResponse.json(
+        { error: "Missing ?date=" },
+        { status: 400 }
+      );
+    }
+
+    // ✅ Lazy import (runtime only)
+    const { summarizeAttendanceByDate } = await import(
+      "@/lib/attendance"
+    );
+
+    const data = await summarizeAttendanceByDate(date);
+
+    return NextResponse.json(data); // [{ name, present, absent }]
+  } catch (err) {
+    console.error("[attendance summary]", err);
+    return NextResponse.json(
+      { error: "Internal server error" },
+      { status: 500 }
+    );
   }
-
-  const data = await summarizeAttendanceByDate(date);
-  return NextResponse.json(data); // array of { name, present, absent }
 }

@@ -1,10 +1,16 @@
-import prisma from "@/lib/prisma";
-
+// app/api/students/restore/route.ts
 export async function POST(req: Request) {
-  const form = await req.formData();
-  const id = form.get("id") as string;
-
   try {
+    const form = await req.formData();
+    const id = form.get("id") as string;
+
+    if (!id) {
+      return new Response("Missing student id", { status: 400 });
+    }
+
+    // ✅ Lazy import Prisma (runtime only)
+    const { default: prisma } = await import("@/lib/prisma");
+
     await prisma.student.update({
       where: { id },
       data: { isDeleted: false },

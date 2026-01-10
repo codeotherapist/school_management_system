@@ -1,6 +1,5 @@
 import { NextResponse } from "next/server";
 import { auth } from "@clerk/nextjs/server";
-import { finalizeLessonAttendance } from "@/lib/actions";
 
 interface FinalizeRequestBody {
   lessonId?: number | string;
@@ -12,7 +11,6 @@ export async function POST(req: Request) {
     const { userId, sessionClaims } = await auth();
     const role = (sessionClaims?.metadata as { role?: string })?.role;
 
-    // Only teachers or admins
     if (!userId || (role !== "teacher" && role !== "admin")) {
       return NextResponse.json(
         { ok: false, error: "Unauthorized" },
@@ -38,7 +36,9 @@ export async function POST(req: Request) {
       );
     }
 
-    // Finalize attendance for the lesson
+    // ✅ Lazy import (runtime only)
+    const { finalizeLessonAttendance } = await import("@/lib/actions");
+
     await finalizeLessonAttendance(numericLessonId, new Date());
 
     return NextResponse.json({
