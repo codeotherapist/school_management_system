@@ -1,34 +1,43 @@
-import { clerkMiddleware, createRouteMatcher } from '@clerk/nextjs/server';
-import { routeAccessMap } from './lib/settings';
-import { NextResponse } from 'next/server';
+import { clerkMiddleware, createRouteMatcher } from "@clerk/nextjs/server";
+import { routeAccessMap } from "./lib/settings";
+import { NextResponse } from "next/server";
 
+// Build matchers once
+const matchers = Object.keys(routeAccessMap).map((route) => ({
+  matcher: createRouteMatcher([route]),
+  allowedRoles: routeAccessMap[route],
+}));
 
-const matchers = Object.keys(routeAccessMap).map(route=>({
-  matcher:createRouteMatcher([route]),
-  allowedRoles: routeAccessMap[route]
-}))
+export default clerkMiddleware(async (auth, req) => {
+  try {
+    // ✅ safely get sessionClaims
+    const { sessionClaims } = await auth();
 
-console.log(matchers)
+    const role = (sessionClaims?.metadata as { role?: string })?.role;
 
-export default clerkMiddleware(async(auth, req) => {
- // if (isProtectedRoute(req)) await auth.protect()
+    for (const { matcher, allowedRoles } of matchers) {
+      if (matcher(req)) {
+        // If role is missing or not allowed → redirect
+        if (!role || !allowedRoles.includes(role)) {
+          return NextResponse.redirect(new URL(`/${role ?? ""}`, req.url));
+        }
+        break; // route matched, role ok
+      }
+    }
 
- const {sessionClaims}  = await auth();
- 
- const role = (sessionClaims?.metadata as {role?: string})?.role;
-
- for(const {matcher, allowedRoles} of matchers){
-  if(matcher(req) && !allowedRoles.includes(role!)){
-    return NextResponse.redirect(new URL(`/${role}`, req.url));
+    return undefined; // allow request to continue
+  } catch (err) {
+    console.error("[Middleware] Error:", err);
+    // In case of error, redirect to login
+    return NextResponse.redirect(new URL("/sign-in", req.url));
   }
- }
 });
 
 export const config = {
   matcher: [
-    // Skip Next.js internals and all static files, unless found in search params
-    '/((?!_next|[^?]*\\.(?:html?|css|js(?!on)|jpe?g|webp|png|gif|svg|ttf|woff2?|ico|csv|docx?|xlsx?|zip|webmanifest)).*)',
+    // Skip Next.js internals & static files
+    "/((?!_next|[^?]*\\.(?:html?|css|js(?!on)|jpe?g|webp|png|gif|svg|ttf|woff2?|ico|csv|docx?|xlsx?|zip|webmanifest)).*)",
     // Always run for API routes
-    '/(api|trpc)(.*)',
+    "/(api|trpc)(.*)",
   ],
 };
