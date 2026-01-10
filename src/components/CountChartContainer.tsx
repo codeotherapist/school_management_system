@@ -1,8 +1,10 @@
 import Image from "next/image";
 import CountChart from "./CountChart";
-import prisma from "@/lib/prisma";
+
 
 const CountChartContainer = async () => {
+    // 🔹 Lazy-load Prisma
+  const { default: prisma } = await import("@/lib/prisma");
   // Group only active students (not deleted)
   const data = await prisma.student.groupBy({
     by: ["sex"],

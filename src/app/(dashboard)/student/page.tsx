@@ -2,10 +2,12 @@
 import Announcements from "@/components/Announcements";
 import EventCalendar from "@/components/EventCalendar";
 import StudentListComponent from "@/components/forms/StudentListComponent";// <-- new
-import prisma from "@/lib/prisma";
-import { auth } from "@clerk/nextjs/server";
+
 
 const StudentPage = async ({ searchParams }: { searchParams?: any }) => {
+   // 🔹 Lazy-load server-only modules
+  const { default: prisma } = await import("@/lib/prisma");
+  const { auth } = await import("@clerk/nextjs/server");
   const { userId } = await auth();
 
   const classItem = await prisma.class.findMany({

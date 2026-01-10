@@ -2,8 +2,6 @@ import Announcements from "@/components/Announcements";
 import BigCalendarContainer from "@/components/BigCalendarContainer";
 import FormContainer from "@/components/FormContainer";
 import Performance from "@/components/Performance";
-import prisma from "@/lib/prisma";
-import { auth } from "@clerk/nextjs/server";
 import { Teacher } from "@prisma/client";
 import Image from "next/image";
 import Link from "next/link";
@@ -14,6 +12,9 @@ const SingleTeacherPage = async ({
 }: {
   params: { id: string };
 }) => {
+     // 🔹 Lazy-load server-only modules
+  const { default: prisma } = await import("@/lib/prisma");
+  const { auth } = await import("@clerk/nextjs/server");
   const { sessionClaims } = await auth();
 
   // ✅ Read role from publicMetadata, fallback to metadata

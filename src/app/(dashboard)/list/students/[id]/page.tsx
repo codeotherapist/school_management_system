@@ -3,8 +3,6 @@ import BigCalendarContainer from "@/components/BigCalendarContainer";
 import FormContainer from "@/components/FormContainer";
 import StudentAttendanceCard from "@/components/StudentAttendanceCard";
 import StudentPerformance from "@/components/StudentPerformance";
-import prisma from "@/lib/prisma";
-import { auth } from "@clerk/nextjs/server";
 import { Class, Student } from "@prisma/client";
 import Image from "next/image";
 import Link from "next/link";
@@ -16,6 +14,9 @@ const SingleStudentPage = async ({
 }: {
   params: { id: string };
 }) => {
+     // 🔹 Lazy-load server-only modules
+  const { default: prisma } = await import("@/lib/prisma");
+  const { auth } = await import("@clerk/nextjs/server");
   const { sessionClaims } = await auth();
 
   // Read role from publicMetadata (fallback to metadata)

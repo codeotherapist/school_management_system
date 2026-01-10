@@ -2,12 +2,11 @@ import FormContainer from "@/components/FormContainer";
 import Pagination from "@/components/Pagination";
 import Table from "@/components/Table";
 import TableSearch from "@/components/TableSearch";
-import prisma from "@/lib/prisma";
 import { Class, Prisma, Subject, Teacher } from "@prisma/client";
 import Image from "next/image";
 import Link from "next/link";
 import { ITEM_PER_PAGE } from "@/lib/settings";
-import { auth } from "@clerk/nextjs/server";
+
 
 type TeacherList = Teacher & { subjects: Subject[] } & { classes: Class[] };
 
@@ -16,6 +15,9 @@ const TeacherListPage = async ({
 }: {
   searchParams: { [key: string]: string | undefined };
 }) => {
+     // 🔹 Lazy-load server-only modules
+  const { default: prisma } = await import("@/lib/prisma");
+  const { auth } = await import("@clerk/nextjs/server");
   const { sessionClaims } = await auth();
 
   // ✅ Read role from publicMetadata, fallback to metadata

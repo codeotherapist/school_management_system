@@ -1,14 +1,16 @@
 import Announcements from "@/components/Announcements";
 import AttendanceChartContainer from "@/components/AttendanceChartContainer";
-import { auth } from "@clerk/nextjs/server";
 import Link from "next/link";
-import prisma from "@/lib/prisma";
+
 
 const TeacherPage = async ({
   searchParams,
 }: {
   searchParams: { [key: string]: string | undefined };
 }) => {
+     // 🔹 Lazy-load server-only modules
+  const { default: prisma } = await import("@/lib/prisma");
+  const { auth } = await import("@clerk/nextjs/server");
   const { userId, sessionClaims } = await auth();
 
   const role =

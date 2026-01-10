@@ -1,5 +1,4 @@
-import prisma from "@/lib/prisma";
-import { auth } from "@clerk/nextjs/server";
+
 import TeacherLessonQrClient from "./TeacherLessonQrClient";
 
 // Define the frontend-friendly Lesson type
@@ -13,6 +12,9 @@ type LessonForClient = {
 };
 
 const TeacherAttendancePage = async () => {
+    // 🔹 Lazy-load server-only modules
+  const { default: prisma } = await import("@/lib/prisma");
+  const { auth } = await import("@clerk/nextjs/server");
   const { userId, sessionClaims } = await auth();
   const role = (sessionClaims?.metadata as { role?: string })?.role;
 

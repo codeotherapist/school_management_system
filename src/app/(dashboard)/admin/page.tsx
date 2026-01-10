@@ -5,7 +5,7 @@ import EventCalendarContainer from "@/components/EventCalendarContainer";
 import FinanceChart from "@/components/FinanceChart";
 import UserCard from "@/components/UserCard";
 import LessonSelector from "@/components/LessonSelector";
-import prisma from "@/lib/prisma";
+
 
 function normalizeDate(input?: string) {
   if (!input) return new Date().toISOString().slice(0, 10); // today
@@ -21,6 +21,8 @@ const AdminPage = async ({
 }) => {
   const selectedDate = normalizeDate(searchParams.date);
   const lessonId = searchParams.lessonId ? parseInt(searchParams.lessonId) : null;
+  //// lazy load
+    const { default: prisma } = await import("@/lib/prisma");
 
   // fetch lessons for dropdown
   const lessons = await prisma.lesson.findMany({

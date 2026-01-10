@@ -1,8 +1,9 @@
-import prisma from "@/lib/prisma";
-import Image from "next/image";
-import Link from "next/link";
+
 
 const DeletedStudentsPage = async () => {
+    // 🔹 Lazy-load server-only modules
+  const { default: prisma } = await import("@/lib/prisma");
+ 
   const students = await prisma.student.findMany({
     where: { isDeleted: true },
     include: {

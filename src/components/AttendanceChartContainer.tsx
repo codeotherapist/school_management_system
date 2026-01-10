@@ -1,6 +1,6 @@
 import Image from "next/image";
 import AttendanceChart from "./AttendanceChart";
-import prisma from "@/lib/prisma";
+
 
 const MS_DAY = 24 * 60 * 60 * 1000;
 const IST_OFFSET_MIN = 5 * 60 + 30; // 5:30 hours
@@ -96,6 +96,8 @@ const AttendanceChartContainer = async ({
   dateISO: string;
   lessonId: number;
 }) => {
+    // 🔹 Lazy-load Prisma
+  const { default: prisma } = await import("@/lib/prisma");
   // 1) Build week (Mon–Fri, IST)
   const mondayISTStartUTC = istMondayOfWeek(dateISO); // UTC instant that corresponds to Monday 00:00 IST
   const istDays = Array.from({ length: 5 }, (_, i) => new Date(mondayISTStartUTC.getTime() + i * MS_DAY));
