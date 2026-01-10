@@ -1,3 +1,4 @@
+export const dynamic = "force-dynamic";
 import { getStudents, getLessons } from "@/lib/actions";
 import AttendanceClient from "@/components/AttendanceClient";
 import { auth } from "@clerk/nextjs/server";

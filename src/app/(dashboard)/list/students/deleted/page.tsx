@@ -1,4 +1,4 @@
-
+export const dynamic = "force-dynamic";
 
 const DeletedStudentsPage = async () => {
     // 🔹 Lazy-load server-only modules

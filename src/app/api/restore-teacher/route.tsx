@@ -1,3 +1,5 @@
+export const dynamic = "force-dynamic";
+
 // app/api/teachers/restore/route.ts
 export async function POST(req: Request) {
   try {

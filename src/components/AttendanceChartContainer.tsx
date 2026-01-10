@@ -1,3 +1,4 @@
+export const dynamic = "force-dynamic"; // 🔹 Force dynamic
 import Image from "next/image";
 import AttendanceChart from "./AttendanceChart";
 

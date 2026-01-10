@@ -1,3 +1,5 @@
+export const dynamic = "force-dynamic"; // 🔹 Force dynamic
+
 import Image from "next/image";
 import CountChart from "./CountChart";
 

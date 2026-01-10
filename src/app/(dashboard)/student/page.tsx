@@ -1,3 +1,4 @@
+export const dynamic = "force-dynamic"; // 🔹 Force dynamic rendering
 // src/app/(dashboard)/student/page.tsx
 import Announcements from "@/components/Announcements";
 import EventCalendar from "@/components/EventCalendar";

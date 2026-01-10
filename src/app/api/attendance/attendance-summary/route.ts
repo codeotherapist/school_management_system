@@ -1,3 +1,4 @@
+export const dynamic = "force-dynamic"; // 🔹 Force dynamic rendering
 import { NextResponse } from "next/server";
 import {
   summarizeAttendanceByDate,

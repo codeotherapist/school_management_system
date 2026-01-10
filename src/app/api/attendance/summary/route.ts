@@ -1,3 +1,4 @@
+export const dynamic = "force-dynamic"; // 🔹 Force dynamic rendering
 // app/api/attendance/summary/route.ts
 import { NextResponse } from "next/server";
 

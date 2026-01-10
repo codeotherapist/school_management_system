@@ -1,3 +1,4 @@
+export const dynamic = "force-dynamic"; // 🔹 Force dynamic
 // src/components/StudentListComponent.tsx
 import FormContainer from "@/components/FormContainer";
 import Pagination from "@/components/Pagination";

@@ -1,4 +1,4 @@
-
+export const dynamic = "force-dynamic";
 import TeacherLessonQrClient from "./TeacherLessonQrClient";
 
 // Define the frontend-friendly Lesson type
