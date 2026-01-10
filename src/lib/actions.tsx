@@ -184,17 +184,17 @@ export const updateTeacher = async (
   try {
     const clerk = await clerkClient();
 
-    // 1. Update Clerk user
+    // 1️⃣ Update Clerk user
     await clerk.users.updateUser(data.id, {
       username: data.username,
-      ...(data.password && data.password !== "" && { password: data.password }),
+      ...(data.password && data.password !== "" ? { password: data.password } : {}),
       firstName: data.name,
       lastName: data.surname,
-      emailAddress: [data.email],
+      ...(data.email ? { emailAddress: [data.email] } : {}),
       publicMetadata: { role: "teacher" },
     });
 
-    // 2. Update Prisma teacher
+    // 2️⃣ Update Prisma teacher
     await prisma.teacher.update({
       where: { id: data.id },
       data: {
@@ -205,20 +205,20 @@ export const updateTeacher = async (
         phone: data.phone || null,
         address: data.address,
         img: data.img || null,
-        bloodType: data.bloodType,
+        bloodType: data.bloodType ,
         sex: data.sex,
-        birthday: data.birthday,
+        birthday: data.birthday || null,
         subjects: {
-          set: data.subjects?.map((subjectId: string) => ({
-            id: parseInt(subjectId),
-          })),
+          set: data.subjects?.map((subjectId: string | number) => ({
+            id: typeof subjectId === "string" ? parseInt(subjectId) : subjectId,
+          })) || [],
         },
       },
     });
 
     return { success: true, error: false };
   } catch (err) {
-    console.error("Error updating teacher:", err);
+    console.error("❌ Error updating teacher:", err);
     return { success: false, error: true };
   }
 };
@@ -296,7 +296,7 @@ export const createStudent = async (
       password: data.password,
       firstName: data.name,
       lastName: data.surname,
-      emailAddress: [data.email],
+      emailAddress: data.email ? [data.email] : undefined, 
       publicMetadata: { role: "student" },
     });
 
@@ -313,10 +313,10 @@ export const createStudent = async (
         img: data.img || null,
         bloodType: data.bloodType,
         sex: data.sex,
-        birthday: data.birthday,
+        birthday: data.birthday || null,
         gradeId: data.gradeId,
         classId: data.classId,
-        parentId: data.parentId,
+        parentId: data.parentId ,
         isDeleted: false, // 🔥 Soft delete flag
       },
     });
@@ -327,7 +327,6 @@ export const createStudent = async (
     return { success: false, error: true };
   }
 };
-
 
 /* =========================================================
    UPDATE STUDENT
@@ -343,13 +342,13 @@ export const updateStudent = async (
 
     // 1️⃣ Update Clerk user
     await clerk.users.updateUser(data.id, {
-      username: data.username,
-      ...(data.password && data.password !== "" ? { password: data.password } : {}),
-      firstName: data.name,
-      lastName: data.surname,
-      emailAddress: [data.email],
-      publicMetadata: { role: "student" },
-    });
+  username: data.username,
+  firstName: data.name,
+  lastName: data.surname,
+  ...(data.password ? { password: data.password } : {}),
+  ...(data.email ? { emailAddress: [data.email] } : {}),
+  publicMetadata: { role: "student" },
+});
 
     // 2️⃣ Update Prisma student
     await prisma.student.update({
@@ -362,12 +361,12 @@ export const updateStudent = async (
         phone: data.phone || null,
         address: data.address,
         img: data.img || null,
-        bloodType: data.bloodType,
+        bloodType: data.bloodType ,
         sex: data.sex,
-        birthday: data.birthday,
+        birthday: data.birthday || null,
         gradeId: data.gradeId,
         classId: data.classId,
-        parentId: data.parentId,
+        parentId: data.parentId ,
       },
     });
 
@@ -377,6 +376,7 @@ export const updateStudent = async (
     return { success: false, error: true };
   }
 };
+
 
 
 /* =========================================================
