@@ -89,7 +89,7 @@ const ExamForm = ({ type, data, setOpen, relatedData }: ExamFormProps) => {
         <InputField
           label="Title"
           name="title"
-          register={register("title")}
+          register={register}
           defaultValue={data?.title ?? ""}
           error={errors.title}
         />
@@ -98,7 +98,8 @@ const ExamForm = ({ type, data, setOpen, relatedData }: ExamFormProps) => {
           label="Start Time"
           type="datetime-local"
           name="startTime"
-          register={register("startTime", { valueAsDate: true })}
+          register={register}
+          registerOptions={{ valueAsDate: true }} // ✅ pass options here
           defaultValue={data?.startTime ? new Date(data.startTime).toISOString().slice(0,16) : ""}
           error={errors.startTime}
         />
@@ -107,7 +108,8 @@ const ExamForm = ({ type, data, setOpen, relatedData }: ExamFormProps) => {
           label="End Time"
           type="datetime-local"
           name="endTime"
-          register={register("endTime", { valueAsDate: true })}
+          register={register}
+          registerOptions={{ valueAsDate: true }} // ✅ pass options here
           defaultValue={data?.endTime ? new Date(data.endTime).toISOString().slice(0,16) : ""}
           error={errors.endTime}
         />
@@ -116,7 +118,7 @@ const ExamForm = ({ type, data, setOpen, relatedData }: ExamFormProps) => {
           <InputField
             label="ID"
             name="id"
-            register={register("id")}
+            register={register}
             defaultValue={data.id}
             hidden
           />

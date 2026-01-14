@@ -1,10 +1,11 @@
-import { FieldError } from "react-hook-form";
+import { FieldError, UseFormRegister, RegisterOptions } from "react-hook-form";
 
 type InputFieldProps = {
   label: string;
   type?: string;
-  register: any;
   name: string;
+  register: UseFormRegister<any>;
+  registerOptions?: RegisterOptions; // ✅ allow passing valueAsDate etc
   defaultValue?: string | number;
   error?: FieldError;
   hidden?: boolean;
@@ -14,8 +15,9 @@ type InputFieldProps = {
 const InputField = ({
   label,
   type = "text",
-  register,
   name,
+  register,
+  registerOptions,
   defaultValue,
   error,
   hidden,
@@ -28,9 +30,9 @@ const InputField = ({
       <input
         type={type}
         defaultValue={defaultValue}
-        {...register(name)}
+        {...register(name, registerOptions)} // ✅ options applied here
         className="ring-[1.5px] ring-gray-300 p-2 rounded-md text-sm w-full"
-        {...inputProps} // safe now
+        {...inputProps} // only real input attributes
       />
 
       {error?.message && (

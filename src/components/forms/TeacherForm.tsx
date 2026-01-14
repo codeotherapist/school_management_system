@@ -4,7 +4,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm, SubmitHandler } from "react-hook-form";
 import InputField from "../InputField";
 import Image from "next/image";
-import { Dispatch, SetStateAction, useEffect, useState } from "react";
+import { Dispatch, SetStateAction, useState } from "react";
 import { createTeacher, updateTeacher } from "@/lib/actions";
 import { useRouter } from "next/navigation";
 import { toast } from "react-toastify";
@@ -16,7 +16,7 @@ type TeacherFormProps = {
   type: "create" | "update";
   data?: any;
   setOpen: Dispatch<SetStateAction<boolean>>;
-  relatedData?: any;
+  relatedData?: { subjects?: { id: number; name: string }[] };
 };
 
 // ---------------- Inline Zod Schema -----------------
@@ -37,13 +37,20 @@ const teacherSchema = z.object({
 
 // ---------------- Form Component -----------------
 const TeacherForm = ({ type, data, setOpen, relatedData }: TeacherFormProps) => {
+    
   const router = useRouter();
   const [img, setImg] = useState<any>();
-  const { subjects: subjectsData = [] } = relatedData ?? {};
+
+  const subjectsData = relatedData?.subjects || [];
 
   type FormValues = z.infer<typeof teacherSchema>;
 
-  const { register, handleSubmit, formState: { errors } } = useForm<FormValues>({
+
+  const {
+    register,
+    handleSubmit,
+    formState: { errors },
+  } = useForm<FormValues>({
     resolver: zodResolver(teacherSchema),
     defaultValues: {
       id: data?.id?.toString(),
@@ -62,34 +69,33 @@ const TeacherForm = ({ type, data, setOpen, relatedData }: TeacherFormProps) => 
   });
 
   const onSubmit: SubmitHandler<FormValues> = async (formData) => {
-  const payload = {
-    username: formData.username,
-    password: formData.password || "", // ensure string
-    name: formData.name,
-    surname: formData.surname,
-    email: formData.email || "",       // ensure string
-    address: formData.address,
-    bloodType: formData.bloodType || "", // ensure string
-    birthday: formData.birthday ? new Date(formData.birthday) : new Date(), // convert to Date
-    sex: formData.sex,
-    phone: formData.phone || "",       // optional but backend expects string
-    subjects: formData.subjects || [], // ensure array
-    id: formData.id?.toString(),       // convert id to string if exists
-    img: img?.secure_url,
+    const payload = {
+      username: formData.username,
+      password: formData.password || "",
+      name: formData.name,
+      surname: formData.surname,
+      email: formData.email || "",
+      address: formData.address,
+      bloodType: formData.bloodType || "",
+      birthday: formData.birthday ? new Date(formData.birthday) : new Date(),
+      sex: formData.sex,
+      phone: formData.phone || "",
+      subjects: formData.subjects || [],
+      id: formData.id?.toString(),
+      img: img?.secure_url,
+    };
+
+    const action = type === "create" ? createTeacher : updateTeacher;
+    const result = await action({ success: false, error: false }, payload);
+
+    if (result.success) {
+      toast(`Teacher has been ${type === "create" ? "created" : "updated"}!`);
+      setOpen(false);
+      router.refresh();
+    } else {
+      toast.error("Something went wrong!");
+    }
   };
-
-  const action = type === "create" ? createTeacher : updateTeacher;
-  const result = await action({ success: false, error: false }, payload);
-
-  if (result.success) {
-    toast(`Teacher has been ${type === "create" ? "created" : "updated"}!`);
-    setOpen(false);
-    router.refresh();
-  } else {
-    toast.error("Something went wrong!");
-  }
-};
-
 
   return (
     <form className="flex flex-col gap-8" onSubmit={handleSubmit(onSubmit)}>
@@ -115,7 +121,8 @@ const TeacherForm = ({ type, data, setOpen, relatedData }: TeacherFormProps) => 
         <InputField label="Blood Type" name="bloodType" register={register} defaultValue={data?.bloodType} error={errors.bloodType} />
         <InputField label="Birthday" name="birthday" register={register} type="date" defaultValue={data?.birthday ? new Date(data.birthday).toISOString().split("T")[0] : ""} error={errors.birthday} />
         {data && <InputField label="Id" name="id" register={register} defaultValue={data?.id} hidden />}
-        
+
+        {/* SEX */}
         <div className="flex flex-col gap-2 w-full md:w-1/4">
           <label className="text-xs text-gray-500">Sex</label>
           <select {...register("sex")} defaultValue={data?.sex || "MALE"} className="ring-[1.5px] ring-gray-300 p-2 rounded-md text-sm w-full">
@@ -125,16 +132,26 @@ const TeacherForm = ({ type, data, setOpen, relatedData }: TeacherFormProps) => 
           {errors.sex && <p className="text-xs text-red-400">{errors.sex.message}</p>}
         </div>
 
+        {/* SUBJECTS */}
         <div className="flex flex-col gap-2 w-full md:w-1/4">
-          <label className="text-xs text-gray-500">Subjects</label>
-          <select {...register("subjects")} multiple className="ring-[1.5px] ring-gray-300 p-2 rounded-md text-sm w-full" defaultValue={data?.subjects?.map((s: number | string) => s.toString()) || []}>
-            {subjectsData.map((subject: { id: number; name: string }) => (
-              <option key={subject.id} value={subject.id.toString()}>{subject.name}</option>
-            ))}
-          </select>
-          {errors.subjects && <p className="text-xs text-red-400">{errors.subjects.message}</p>}
-        </div>
-
+  <label className="text-xs text-gray-500">Subjects</label>
+  <select
+    multiple
+    className="ring-[1.5px] ring-gray-300 p-2 rounded-md text-sm w-full max-h-40 overflow-y-auto"
+    {...register("subjects")}
+    defaultValue={data?.subjects?.map((s: number | string) => s.toString()) || []} // ensure string IDs
+  >
+    {relatedData?.subjects?.map((subject: { id: number; name: string }) => (
+      <option value={subject.id.toString()} key={subject.id}>
+        {subject.name}
+      </option>
+    ))}
+  </select>
+  {errors.subjects && (
+    <p className="text-xs text-red-400">{errors.subjects.message}</p>
+  )}
+</div>
+        {/* UPLOAD */}
         <CldUploadWidget uploadPreset="SchoolSync" onSuccess={(result, { widget }) => { setImg(result.info); widget.close(); }}>
           {({ open }) => (
             <div className="text-xs text-gray-500 flex items-center gap-2 cursor-pointer" onClick={() => open()}>

@@ -76,8 +76,8 @@ const forms: Record<string, any> = {
   subject: (setOpen: any, type: any, data: any, rel: any) => (
     <SubjectForm type={type} data={data} setOpen={setOpen} relatedData={rel} />
   ),
-  class: (setOpen: any, type: any, data: any) => (
-    <ClassForm type={type} data={data} setOpen={setOpen}  />
+  class: (setOpen: any, type: any, data: any, rel: any) => (
+    <ClassForm type={type} data={data} setOpen={setOpen} relatedData={rel}  />
   ),
   exam: (setOpen: any, type: any, data: any, rel: any) => (
     <ExamForm type={type} data={data} setOpen={setOpen} relatedData={rel} />
