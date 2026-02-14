@@ -1,16 +1,13 @@
 import { NextResponse } from "next/server";
 import { signLessonQr } from "@/lib/qr";
-import type { LessonQrPayload } from "@/lib/qr";
-import { v4 as uuidv4 } from "uuid";
+import crypto from "crypto";
 
 export async function POST(req: Request) {
   try {
-
-  const { auth } = await import("@clerk/nextjs/server");
+    const { auth } = await import("@clerk/nextjs/server");
     const { userId, sessionClaims } = await auth();
     const role = (sessionClaims?.metadata as { role?: string })?.role;
 
-    // ✅ Only teachers allowed
     if (!userId || role !== "teacher") {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
@@ -18,67 +15,50 @@ export async function POST(req: Request) {
     const { lessonId, date } = await req.json();
 
     if (!lessonId) {
-      return NextResponse.json(
-        { error: "lessonId is required" },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: "lessonId required" }, { status: 400 });
     }
 
     const numericLessonId = Number(lessonId);
-    if (Number.isNaN(numericLessonId)) {
-      return NextResponse.json(
-        { error: "Invalid lessonId" },
-        { status: 400 }
-      );
-    }
 
-    // ✅ LAZY Prisma import (CRITICAL for Vercel)
     const { default: prisma } = await import("@/lib/prisma");
 
-    // ✅ Fetch lesson with relations
     const lesson = await prisma.lesson.findUnique({
       where: { id: numericLessonId },
       include: { class: true, subject: true },
     });
 
     if (!lesson) {
-      return NextResponse.json(
-        { error: "Lesson not found" },
-        { status: 404 }
-      );
+      return NextResponse.json({ error: "Lesson not found" }, { status: 404 });
     }
 
-    // ✅ Normalize date (YYYY-MM-DD)
     const todayStr = date
       ? new Date(date).toISOString().slice(0, 10)
       : new Date().toISOString().slice(0, 10);
 
-    // ✅ Strict literal-safe payload
-    const payload: LessonQrPayload = {
-      type: "lesson_attendance",
+    const nowUnix = Math.floor(Date.now() / 1000);
+
+    const payload = {
+      type: "lesson_attendance" as const,
       lessonId: numericLessonId,
       date: todayStr,
-      nonce: uuidv4(),
-      exp: Math.floor(Date.now() / 1000) + 60 * 15, // 15 min expiry
+      exp: nowUnix + 10,
+      nonce: crypto.randomUUID(),
     };
 
     const qrString = signLessonQr(payload);
 
     return NextResponse.json({
       qr: qrString,
-      metadata: {
-        lessonId: lesson.id,
-        className: lesson.class.name,
-        subjectId: lesson.subject?.id ?? null,
-        date: todayStr,
-        exp: payload.exp,
-      },
+      expiresIn: 10,
+      lessonName: lesson.subject?.name ?? "",
+      className: lesson.class.name,
     });
   } catch (err) {
-    console.error("[generate-lesson-qr] error:", err);
+    console.error(err);
     return NextResponse.json(
       { error: "Internal server error" },
       { status: 500 }
     );
   }
 }
+

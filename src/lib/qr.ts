@@ -5,9 +5,9 @@ const QR_SECRET = process.env.QR_SECRET || "dev-secret-change-me";
 export type LessonQrPayload = {
   type: "lesson_attendance";
   lessonId: number;
-  date: string; // "YYYY-MM-DD"
-  exp: number;  // unix seconds
-  nonce: string;
+  date: string;   // "YYYY-MM-DD"
+  exp: number;    // unix seconds
+  nonce: string;  // prevents replay attacks
 };
 
 function base64url(input: Buffer | string) {
@@ -27,26 +27,33 @@ function base64urlDecode(input: string) {
 export function signLessonQr(payload: LessonQrPayload): string {
   const json = JSON.stringify(payload);
   const payloadB64 = base64url(json);
+
   const sig = crypto
     .createHmac("sha256", QR_SECRET)
     .update(payloadB64)
     .digest();
+
   const sigB64 = base64url(sig);
+
   return `${payloadB64}.${sigB64}`;
 }
 
 export function verifyLessonQr(qrString: string): LessonQrPayload {
   const [payloadB64, sigB64] = qrString.split(".");
-  if (!payloadB64 || !sigB64) throw new Error("Invalid QR format");
+  if (!payloadB64 || !sigB64) {
+    throw new Error("");
+  }
 
   const expectedSig = crypto
     .createHmac("sha256", QR_SECRET)
     .update(payloadB64)
     .digest();
+
   const expectedSigB64 = base64url(expectedSig);
 
   const a = Buffer.from(sigB64);
   const b = Buffer.from(expectedSigB64);
+
   if (a.length !== b.length || !crypto.timingSafeEqual(a, b)) {
     throw new Error("Invalid QR signature");
   }
@@ -58,5 +65,13 @@ export function verifyLessonQr(qrString: string): LessonQrPayload {
     throw new Error("Invalid QR type");
   }
 
+  // ✅ Expiry check (real unix seconds)
+  const nowUnix = Math.floor(Date.now() / 1000);
+  if (nowUnix > payload.exp) {
+    throw new Error("QR expired");
+  }
+
   return payload;
 }
+
+

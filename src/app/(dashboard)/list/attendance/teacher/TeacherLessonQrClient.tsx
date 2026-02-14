@@ -1,14 +1,12 @@
 "use client";
+import { useState, useEffect, useRef } from "react";
+import { QRCodeSVG } from "qrcode.react";
 
-import { useState } from "react";
-import { QRCodeSVG } from "qrcode.react"; // ✅ named import
-
-// 🔹 Use the same type as we mapped in the backend
 type Lesson = {
   id: number;
   name: string;
-  startTime: string; // ISO string
-  endTime: string;   // ISO string
+  startTime: string;
+  endTime: string;
   class: { name: string };
   subject: { id: number; name: string };
 };
@@ -20,41 +18,69 @@ type Props = {
 export default function TeacherLessonQrClient({ lessons }: Props) {
   const [selectedLessonId, setSelectedLessonId] = useState<number | null>(null);
   const [qrString, setQrString] = useState<string | null>(null);
-  const [info, setInfo] = useState<{ lessonId: number; className: string; date: string } | null>(null);
+  const [info, setInfo] = useState<{
+    lessonId: number;
+    className: string;
+    date: string;
+  } | null>(null);
+
   const [loading, setLoading] = useState(false);
   const [finishing, setFinishing] = useState(false);
+  const [secondsLeft, setSecondsLeft] = useState(10);
 
-  // Generate QR for selected lesson
+  const intervalRef = useRef<NodeJS.Timeout | null>(null);
+  const countdownRef = useRef<NodeJS.Timeout | null>(null);
+
+  const hasLessons = lessons && lessons.length > 0;
+
+  async function fetchQr(lessonId: number) {
+    const res = await fetch("/api/generate-lesson-qr", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ lessonId }),
+    });
+
+    const data = await res.json();
+
+    if (!res.ok) {
+      alert(data.error || "Failed to generate QR");
+      return;
+    }
+
+    setQrString(data.qr);
+    setInfo(data.metadata);
+    setSecondsLeft(10);
+  }
+
+  function startAutoRefresh(lessonId: number) {
+    // Clear old intervals
+    if (intervalRef.current) clearInterval(intervalRef.current);
+    if (countdownRef.current) clearInterval(countdownRef.current);
+
+    // Fetch immediately
+    fetchQr(lessonId);
+
+    // Refresh every 10 sec
+    intervalRef.current = setInterval(() => {
+      fetchQr(lessonId);
+    }, 10000);
+
+    // Countdown timer
+    countdownRef.current = setInterval(() => {
+      setSecondsLeft((prev) => (prev > 1 ? prev - 1 : 10));
+    }, 1000);
+  }
+
   async function handleGenerate() {
     if (!selectedLessonId) return;
     setLoading(true);
-    setQrString(null);
-    setInfo(null);
-
     try {
-      const res = await fetch("/api/generate-lesson-qr", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ lessonId: selectedLessonId }),
-      });
-
-      const data = await res.json();
-
-      if (!res.ok) {
-        alert(data.error || "Failed to generate QR");
-      } else {
-        setQrString(data.qr);
-        setInfo(data.metadata);
-      }
-    } catch (err) {
-      console.error(err);
-      alert("Error generating QR");
+      startAutoRefresh(selectedLessonId);
     } finally {
       setLoading(false);
     }
   }
 
-  // Finish attendance (mark remaining as absent)
   async function handleFinishAttendance() {
     if (!selectedLessonId) {
       alert("Please select a lesson first.");
@@ -62,6 +88,7 @@ export default function TeacherLessonQrClient({ lessons }: Props) {
     }
 
     setFinishing(true);
+
     try {
       const res = await fetch("/api/attendance/finalize", {
         method: "POST",
@@ -81,14 +108,26 @@ export default function TeacherLessonQrClient({ lessons }: Props) {
       alert("Error finalizing attendance");
     } finally {
       setFinishing(false);
+
+      // Stop QR refresh
+      if (intervalRef.current) clearInterval(intervalRef.current);
+      if (countdownRef.current) clearInterval(countdownRef.current);
     }
   }
 
-  const hasLessons = lessons && lessons.length > 0;
+  // Cleanup on unmount
+  useEffect(() => {
+    return () => {
+      if (intervalRef.current) clearInterval(intervalRef.current);
+      if (countdownRef.current) clearInterval(countdownRef.current);
+    };
+  }, []);
 
   return (
     <div className="p-6 flex flex-col gap-4">
-      <h1 className="text-xl font-semibold">Lesson QR Attendance (Teacher)</h1>
+      <h1 className="text-xl font-semibold">
+        Lesson QR Attendance (Teacher)
+      </h1>
 
       {!hasLessons && (
         <p className="text-sm text-red-600">
@@ -124,7 +163,7 @@ export default function TeacherLessonQrClient({ lessons }: Props) {
               disabled={!selectedLessonId || loading}
               className="px-4 py-2 rounded bg-blue-500 hover:bg-blue-600 text-white disabled:opacity-50 w-max"
             >
-              {loading ? "Generating..." : "Generate QR"}
+              {loading ? "Generating..." : "Start QR"}
             </button>
 
             <button
@@ -146,7 +185,7 @@ export default function TeacherLessonQrClient({ lessons }: Props) {
               Lesson ID: {info.lessonId} • Class: {info.className} • Date:{" "}
               {info.date}
               <br />
-              QR expires in ~15 minutes.
+              QR refreshes in {secondsLeft}s
             </p>
           )}
         </div>
@@ -154,3 +193,4 @@ export default function TeacherLessonQrClient({ lessons }: Props) {
     </div>
   );
 }
+
