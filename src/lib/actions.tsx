@@ -542,16 +542,16 @@ export const createExam = async (data: {
   startTime: Date;
   endTime: Date;
   lessonId: number;
-  id?: number;
 }) => {
   try {
-    const res = await fetch("/api/exams", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(data),
+    await prisma.exam.create({
+      data: {
+        title: data.title,
+        startTime: new Date(data.startTime),
+        endTime: new Date(data.endTime),
+        lessonId: data.lessonId,
+      },
     });
-
-    if (!res.ok) throw new Error("Failed to create exam");
 
     return { success: true };
   } catch (error) {
@@ -568,13 +568,15 @@ export const updateExam = async (data: {
   id: number;
 }) => {
   try {
-    const res = await fetch(`/api/exams/${data.id}`, {
-      method: "PUT",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(data),
+    await prisma.exam.update({
+      where: { id: data.id },
+      data: {
+        title: data.title,
+        startTime: new Date(data.startTime),
+        endTime: new Date(data.endTime),
+        lessonId: data.lessonId,
+      },
     });
-
-    if (!res.ok) throw new Error("Failed to update exam");
 
     return { success: true };
   } catch (error) {
@@ -617,6 +619,7 @@ export const deleteExam = async (
     return { success: false, error: true };
   }
 };
+
 
 
 ///////////////////////////////////////////// lesson //////////////////////////////////////////////
